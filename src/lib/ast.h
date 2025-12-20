@@ -1,134 +1,180 @@
-#ifndef AST_H
-#define AST_H
+#ifndef _AST_H_
+#define _AST_H_
+/* Abstract Syntax Tree */
 
 #include <stdint.h>
+#include <stdio.h>
+#include "arith.h"
 #include "types.h"
+#include "stdbool.h"
 
+/* Node types */
 typedef enum {
-    /* Top Level */
-    NODE_INT_LIT,
-} NodeKind;
+    NODE_PROGRAM,
+    NODE_BLOCK,
 
-typedef struct ASTNode {
-    NodeKind kind;
-    /* For linking lists (stmts, params, args) */
-    struct ASTNode* next;
+    NODE_FUNC,
+    NODE_PARAM,
+    NODE_RETURN,
+    NODE_CALL,
 
+    NODE_DECL,
+    NODE_ASSIGN,
+
+    NODE_IF,
+
+    NODE_FOR,
+    NODE_FOR_VAR,
+    NODE_WHILE,
+
+    NODE_PRINT,
+
+    NODE_BINARY,
+    NODE_UNARY,
+
+    NODE_INT,
+    NODE_STR,
+    NODE_BOOL,
+    NODE_VAR
+} ast_node_t;
+
+typedef struct ast_node {
+    ast_node_t type;
+    /* Line for errors (e.g. types)*/
+    int line;
+    /* For linked lists */
+    ast_node *next;
+
+    /* Data container */
     union {
-        /* fn name(...) --> type { body } */
         struct {
-            char* name;
-            /* Points to first param */
-            struct ASTNode* params;
-            struct ASTNode* body;
-            BaseType ret_type;
-        } func;
-
-        /* name: type */
-        struct {
-            char* name;
-            BaseType type;
-        } param;
-
-        /* { stmts } */
-        struct {
-            /* Points to first stmt */
-            struct ASTNode* stmts;
+            // linked list of statements
+            ast_node *stmts;
         } block;
 
-        /* type |x| -> expr */
-        struct {
-            char* name;
-            BaseType type;
-            struct ASTNode* expr;
-        } var_decl;
 
-        /* |x| -> expr */
         struct {
-            char* name;
-            struct ASTNode* expr;
-        } assign;
-
-        /* if (cond) then_block else else_block */
+            char *name;
+            // linked list of parameters decls
+            ast_node *params;
+            yafl_t return_type;
+            // linked list of statements
+            ast_node *body;
+        } func;
         struct {
-            struct ASTNode* cond;
-            struct ASTNode* then_block;
-            struct ASTNode* else_block;
-        } if_stmt;
-
-        /* while (cond) body */
+            yafl_t type;
+            char *name;
+        } param;
         struct {
-            struct ASTNode* cond;
-            struct ASTNode* body;
-        } while_stmt;
-
-        /* print("fmt", args...) */
+            ast_node *value;
+        } ret;
         struct {
-            char* fmt;
-            /* Points to first arg */
-            struct ASTNode* args;
-        } print_stmt;
-
-        /* L op R */
-        struct {
-            int op;
-            struct ASTNode* left;
-            struct ASTNode* right;
-        } bin_op;
-
-        /* op operand */
-        struct {
-            int op;
-            struct ASTNode* operand;
-        } unary_op;
-
-        /* call name(args) */
-        struct {
-            char* name;
-            /* Points to first arg */
-            struct ASTNode* args;
+            char *name;
+            // linked list of args
+            ast_node *args;
         } call;
 
-        /* for int |i| in range(start, end, step) { body } */
-        struct {
-            char* var_name;
-            struct ASTNode* start;
-            struct ASTNode* end;
-            struct ASTNode* step;
-            struct ASTNode* body;
-        } for_stmt;
 
-        /* ret expression; */
         struct {
-            struct ASTNode* expr;   /* The value being returned */
-        } ret_stmt;
+            yafl_t type;
+            char *name;
+            ast_node *init;
+        } decl;
+        struct {
+            char *name;
+            ast_node *value;
+        } assign;
 
-        uint64_t nr;
-        char* str;
+
+        struct {
+            ast_node *condition;
+            ast_node *then_block;
+            ast_node *else_block;
+        } if_stmt;
+        struct {
+            // loop variable
+            ast_node *var;
+            // range
+            ast_node *start;
+            ast_node *end;
+            ast_node *step;
+
+            ast_node *body;
+        } for_loop;
+        struct {
+            yafl_t type;
+            char *name;
+        } for_var;
+        struct {
+            ast_node *condition;
+            ast_node *body;
+        } while_loop;
+
+        struct {
+            // Currently only print one string
+            ast_node *arg;
+        } print;
+
+        struct {
+            bin_op_t op;
+            ast_node *left;
+            ast_node *right;
+        } binary;
+        struct {
+            bin_op_t op;
+            ast_node *operand;
+        } unary;
+
+
+        struct {
+            uint64_t value;
+        } integer;
+        struct {
+            char *value;
+        } string;
+        struct {
+            bool value;
+        } boolean;
+        struct {
+            char *name;
+        } var;
     } data;
 
-} ASTNode;
+} ast_node;
 
-/* Constructors */
-ASTNode* ast_new_node(NodeKind kind);
-ASTNode* ast_new_int(uint64_t val);
-ASTNode* ast_new_var(char* name);
-ASTNode* ast_new_str(char* str);
-ASTNode* ast_new_binary(int op, ASTNode* left, ASTNode* right);
-ASTNode* ast_new_unary(int op, ASTNode* operand);
-ASTNode* ast_new_decl(BaseType type, char* name, ASTNode* expr);
-ASTNode* ast_new_assign(char* name, ASTNode* expr);
-ASTNode* ast_new_if(ASTNode* cond, ASTNode* then_block, ASTNode* else_block);
-ASTNode* ast_new_call(char* name, ASTNode* args);
-ASTNode* ast_new_func(char* name, ASTNode* params, BaseType ret, ASTNode* body);
-ASTNode* ast_new_return(ASTNode* expr);
-ASTNode* ast_new_for(char* var, ASTNode* start, ASTNode* end, ASTNode* step, ASTNode* body);
-ASTNode* ast_new_while(ASTNode* cond, ASTNode* body);
-ASTNode* ast_new_print(char* fmt, ASTNode* args);
+/* AST Node Constructors */
+ast_node* ast_new_node(ast_node_t kind);
+
+ast_node* ast_new_func(char* name, ast_node* params, yafl_t return_type, ast_node* body);
+ast_node* ast_new_ret(ast_node* value);
+ast_node* ast_new_call(char* name, ast_node* args);
+
+ast_node *ast_new_decl(yafl_t type, char* name, ast_node* init);
+ast_node *ast_new_assign(char* name, ast_node* value);
+
+ast_node *ast_new_if(ast_node* condition, ast_node* then_block, ast_node* else_block);
+
+ast_node *ast_new_for(char* var, ast_node* start, ast_node* end, ast_node* step, ast_node* body);
+ast_node *ast_new_while(ast_node* cond, ast_node* body);
+
+ast_node *ast_new_print(char* arg);
+
+ast_node *ast_new_binary(bin_op_t op, ast_node* left, ast_node* right);
+ast_node *ast_new_unary(un_op_t op, ast_node* operand);
+
+ast_node *ast_new_int(uint64_t value);
+ast_node *ast_new_str(char* value);
+ast_node *ast_new_bool(bool value);
+ast_node *ast_new_var(char* name);
 
 /* Helper to link lists */
-ASTNode* ast_append(ASTNode* list, ASTNode* new_node);
+ast_node *ast_append(ast_node* list, ast_node* new_node);
 
-void ast_print_dot(ASTNode* root, FILE* fp);
+/* List operations */
+ast_node *ast_append(ast_node *list, ast_node *node);
 
-#endif
+/* Utilities */
+void ast_dump(ast_node *node, FILE *fname);
+void ast_free(ast_node *node);
+
+#endif // _AST_H_

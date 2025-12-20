@@ -1,27 +1,57 @@
 %code requires {
     #include <stdint.h>
+    #include "ast.h"
+    #include "types.h"
 }
 
 %{
     #include <stdio.h>
     #include <stdint.h>
     #include <inttypes.h>
+
+    extern int yylineno;
+
     int yylex();
-    void yyerror(const char *msg){ fprintf(stderr, "Parse Error: %s\n", msg); }
+    void yyerror(const char *msg){ fprintf(stderr, "Error in line %d: %s\n", yylineno, msg); }
+
+    /* Global AST Root */
+    ast_node *root = NULL;
 %}
 
 %define parse.error verbose
 
 %union {
     uint64_t nr;
+    char *str;
+    ASTNode *node;
+    /* Type info */
+    yafltype type;
 }
 
-%type <nr> program expr_list expr
-%token <nr> num
+/* Lexer Tokens */
+%token <nr> L_INT L_BOOL
+%token <str> L_STR ID ID_VAR
+%token KW_FN KW_RET KW_IF KW_ELSE KW_WHILE KW_FOR KW_IN KW_RANGE KW_PRINT
+%token S_RARROW S_LARROW
+%token T_STR T_BOOL T_NONE T_SINT T_UINT
+
+/* Non-terminals */
+%type <node> program top_level_list top_level_item
+%type <node> fn_definition fn_signature
+%type <node> param_list param_list_nonempty param
+%type <node> compound_stmt statement_list statement
+%type <node> var_decl_stmt assignment_stmt return_stmt
+%type <node> if_stmt opt_else for_stmt while_stmt print_stmt expr_stmt
+%type <node> for_loop_var
+%type <node> expr primary call_expr
+%type <node> expr_list expr_list_opt
+%type <type> type_specifier
 
 /* Precedence */
+%left '<' '>'
 %left '+' '-'
 %left '*' '/' '%'
+%precedence UMINUS  /* Unary minus */
 
 %%
 

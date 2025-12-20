@@ -9,9 +9,12 @@
 %}
 
 /* Patterns */
-BASE (2|8|10|16)
+HEX_DIGIT [0-9A-Fa-f]
+
+BASE (2|8|10|12)
+BIN_NUM (0|1[0-1]*)
+OCT_NUM (0|[1-7][0-7]*)
 DEC_NUM (0|[1-9][0-9]*)
-HEX [0-9A-Fa-f]
 HEX_NUM (0|[1-9A-Fa-f][0-9A-Fa-f]*)
 
 VAR_IDENT "|"[^|\t\n\r]+"|"
@@ -41,28 +44,38 @@ IGNORE [ \t\n]+
 }
 
 
-{DEC_NUM} {
-    yylval.nr = strtoull(yytext, NULL, 10);
+"2#"{BIN_NUM} {
+    yylval.nr = strtol(yytext + 2, NULL, 2);
     return L_INT;
 }
-"#"{HEX_NUM} {
-    yylval.nr = strtoull(yytext + 1, NULL, 16);
+"8#"{OCT_NUM} {
+    yylval.nr = strtol(yytext + 2, NULL, 8);
     return L_INT;
 }
-{BASE}"#"{NUMBER} {
-    char* sep = strchr(yytext, '#');
-    *sep = '\0';
-    int base = atoi(yytext);
-    yylval.nr = strtol(sep + 1, NULL, base);
-    *sep = '#';
+"10#"{DEC_NUM} {
+    yylval.nr = strtol(yytext + 3, NULL, 10);
     return L_INT;
+}
+"16#"{HEX_NUM} {
+    yylval.nr = strtol(yytext + 3, NULL, 16);
+    return L_INT;
+}
+{BASE}"#"{HEX_NUM} {
+    /* Catch-all for invalid numbers */
+    fprintf(stderr, "Error in line %d: Invalid number format '%s'\n", yylineno, yytext);
+    exit(1);
+}
+[0-9]+"#"[0-9A-Fa-f]+ {
+    /* Catch-all for invalid base */
+    fprintf(stderr, "Error line %d: Invalid base in number '%s' (use 2#, 8#, 10#, or 16#)\n", yylineno, yytext);
+    exit(1);
 }
 
 
 ">>" {
     BEGIN(STRING_STATE);
 }
-<STRING_STATE>"^x"{HEX}{HEX} {
+<STRING_STATE>"^x"{HEX_DIGIT}{HEX_DIGIT} {
     long val = strtol(yytext + 2, NULL, 16);
     chr_append((char) val);
 }
@@ -101,20 +114,11 @@ IGNORE [ \t\n]+
 "->" { return S_RARROW; }
 "<-" { return S_LARROW; }
 
-"chr" { return T_CHAR; }
 "str" { return T_STR; }
 "bool" { return T_BOOL; }
 "none" { return T_NONE; }
-
-"int8"|"sint8" { return T_SINT8; }
-"int16"|"sint16" { return T_SINT16; }
-"int"|"sint"|"sint32" { return T_SINT32; }
-"sint64" { return T_SINT64; }
-
-"uint8" { return T_UINT8; }
-"uint16" { return T_UINT16; }
-"uint"|"uint32" { return T_UINT32; }
-"uint64" { return T_UINT64; }
+"int"|"sint" { return T_SINT; }
+"uint" { return T_UINT; }
 
 {IGNORE} ;
 
