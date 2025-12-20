@@ -1,2 +1,12 @@
+# Ignore executables (no file extension, marked as executable)
+*
+!Makefile
+!*/
+!*.*
+
+# Ignore compiled object files
+*.o
+
+# Ignore Latex Junk
 doc/build/*
 !doc/build/report.pdf
