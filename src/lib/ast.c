@@ -66,7 +66,7 @@ ast_node *ast_new_if(ast_node *cond, ast_node *then_b, ast_node *else_b) {
 }
 
 
-ast_node *ast_new_for(char* var, ast_node* start, ast_node* end, ast_node* step, ast_node* body) {
+ast_node *ast_new_for(ast_node* var, ast_node* start, ast_node* end, ast_node* step, ast_node* body) {
     ast_node *node = ast_new_node(NODE_FOR);
     node->data.for_loop.var = var;
     node->data.for_loop.start = start;
@@ -150,6 +150,7 @@ static const char *node_type_str(ast_node_t type) {
         case NODE_RETURN: return "RETURN";
         case NODE_IF: return "IF";
         case NODE_FOR: return "FOR";
+        case NODE_FOR_DECL: return "FOR_DECL";
         case NODE_FOR_VAR: return "FOR_VAR";
         case NODE_WHILE: return "WHILE";
         case NODE_PRINT: return "PRINT";
@@ -256,10 +257,14 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
         case NODE_FOR:
             snprintf(label, sizeof(label), "FOR");
             break;
+        case NODE_FOR_DECL:
+            snprintf(label, sizeof(label), "FOR_DECL\\n%s : %s",
+                     node->data.for_decl.name,
+                     type_str(node->data.for_decl.type));
+            break;
         case NODE_FOR_VAR:
-            snprintf(label, sizeof(label), "FOR_VAR\\n%s : %s",
-                     node->data.for_var.name,
-                     type_str(node->data.for_var.type));
+            snprintf(label, sizeof(label), "FOR_VAR\\n%s",
+                     node->data.for_var.name);
             break;
         case NODE_WHILE:
             snprintf(label, sizeof(label), "WHILE");
@@ -416,7 +421,7 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
 }
 
 /* Print the ast as a dot file */
-void ast_print_dot(ast_node_t *node, const char *filename) {
+void ast_print_dot(ast_node *node, const char *filename) {
     FILE *fp = fopen(filename, "w");
     if (!fp) {
         fprintf(stderr, "Error: Could not open %s for writing\n", filename);
@@ -488,6 +493,9 @@ void ast_free(ast_node *node) {
             ast_free(node->data.for_loop.end);
             ast_free(node->data.for_loop.step);
             ast_free(node->data.for_loop.body);
+            break;
+        case NODE_FOR_DECL:
+            free(node->data.for_decl.name);
             break;
         case NODE_FOR_VAR:
             free(node->data.for_var.name);

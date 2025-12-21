@@ -8,11 +8,14 @@
     #include <stdio.h>
     #include <stdint.h>
     #include <inttypes.h>
+    #include "ast.h"
 
     extern int yylineno;
 
     int yylex();
-    void yyerror(const char *msg){ fprintf(stderr, "Error in line %d: %s\n", yylineno, msg); }
+    void yyerror(const char *msg){
+        fprintf(stderr, "Error in line %d: %s\n", yylineno, msg);
+    }
 
     /* Global AST Root */
     ast_node *root = NULL;
@@ -23,9 +26,9 @@
 %union {
     uint64_t nr;
     char *str;
-    ASTNode *node;
+    ast_node *node;
     /* Type info */
-    yafltype type;
+    yafl_t type;
 }
 
 /* Lexer Tokens */
@@ -36,12 +39,12 @@
 %token T_STR T_BOOL T_NONE T_SINT T_UINT
 
 /* Non-terminals */
-%type <node> program top_level_list top_level_item
+%type <node> program function_list
 %type <node> fn_definition fn_signature
 %type <node> param_list param_list_nonempty param
 %type <node> compound_stmt statement_list statement
 %type <node> var_decl_stmt assignment_stmt return_stmt
-%type <node> if_stmt opt_else for_stmt while_stmt print_stmt expr_stmt
+%type <node> if_stmt opt_else for_stmt while_stmt print_stmt
 %type <node> for_loop_var
 %type <node> expr primary call_expr
 %type <node> expr_list expr_list_opt
@@ -51,28 +54,23 @@
 %left '<' '>'
 %left '+' '-'
 %left '*' '/' '%'
-%precedence UMINUS  /* Unary minus */
+%precedence NEG  // Negation
 
 %%
 
 program:
-    top_level_list { root = $1; }
+    function_list { root = $1; }
     ;
 
-top_level_list:
-    top_level_list top_level_item { $$ = ast_append($1, $2); }
-    | %empty { $$ = NULL; }
-    ;
-
-top_level_item:
-    fn_definition
-    | compound_stmt
-    | statement
+function_list:
+    function_list fn_definition { $$ = ast_append($1, $2); }
+    | fn_definition
     ;
 
 /* --- FUNCTIONS --- */
 fn_definition:
     fn_signature compound_stmt {
+        /* body added here */
         $1->data.func.body = $2;
         $$ = $1;
     }
@@ -96,7 +94,7 @@ param_list_nonempty:
     ;
 
 param:
-    type_specifier ':' VAR_ID {
+    type_specifier ':' ID_VAR {
         $$ = ast_new_node(NODE_PARAM);
         $$->data.param.type = $1;
         $$->data.param.name = $3;
@@ -124,7 +122,7 @@ statement:
     | for_stmt
     | while_stmt
     | print_stmt
-    | expr_stmt
+    | expr ';'
     ;
 
 /* --- SPECIFIC STATEMENTS --- */
@@ -135,14 +133,14 @@ var_decl_stmt:
     ;
 
 assignment_stmt:
-    ID_VAR S_LARROW expr ';' {
+    ID_VAR S_RARROW expr ';' {
         $$ = ast_new_assign($1, $3);
     }
     ;
 
 return_stmt:
     KW_RET expr ';' {
-        $$ = ast_new_return($2);
+        $$ = ast_new_ret($2);
     }
     ;
 
@@ -160,14 +158,34 @@ opt_else:
 
 /* --- FOR loops --- */
 for_stmt:
-    KW_FOR for_loop_var KW_IN KW_RANGE '(' expr ',' expr ',' expr ')' compound_stmt {
+    /* range(end) - start=0, step=1 */
+    KW_FOR for_loop_var KW_IN KW_RANGE '(' expr ')' compound_stmt {
+        ast_node *start = ast_new_int(0);
+        ast_node *step = ast_new_int(1);
+        $$ = ast_new_for($2, start, $6, step, $8);
+    }
+    /* range(start, end) - step=1 */
+    | KW_FOR for_loop_var KW_IN KW_RANGE '(' expr ',' expr ')' compound_stmt {
+        ast_node *step = ast_new_int(1);
+        $$ = ast_new_for($2, $6, $8, step, $10);
+    }
+    /* range(start, end, step) - fully specified */
+    | KW_FOR for_loop_var KW_IN KW_RANGE '(' expr ',' expr ',' expr ')' compound_stmt {
         $$ = ast_new_for($2, $6, $8, $10, $12);
     }
     ;
 
 for_loop_var:
-    type_specifier VAR_ID { $$ = $2; }
-    | VAR_ID
+    type_specifier ID_VAR {
+        $$ = ast_new_node(NODE_FOR_DECL);
+        $$->data.for_decl.type = $1;
+        $$->data.for_decl.name = $2;
+    }
+    | ID_VAR {
+        $$ = ast_new_node(NODE_FOR_VAR);
+        $$->data.for_var.name = $1;
+    }
+    ;
 
 while_stmt:
     KW_WHILE '(' expr ')' compound_stmt {
@@ -176,39 +194,35 @@ while_stmt:
     ;
 
 print_stmt:
-    KW_PRINT '(' STR_CONST ')' ';' {
+    KW_PRINT '(' expr ')' ';' {
         $$ = ast_new_print($3);
     }
     ;
 
-expr_stmt:
-    expr ';'
-    ;
-
 /* --- expressions --- */
 expr:
-    expr '+' expr { $$ = ast_new_binary('+', $1, $3); }
-    | expr '-' expr { $$ = ast_new_binary('-', $1, $3); }
-    | expr '*' expr { $$ = ast_new_binary('*', $1, $3); }
-    | expr '/' expr { $$ = ast_new_binary('/', $1, $3); }
-    | expr '<' expr { $$ = ast_new_binary('<', $1, $3); }
-    | expr '>' expr { $$ = ast_new_binary('>', $1, $3); }
-    | '-' expr %prec AR_UMINUS { $$ = ast_new_unary('-', $2); }
+    expr '+' expr { $$ = ast_new_binary(OP_ADD, $1, $3); }
+    | expr '-' expr { $$ = ast_new_binary(OP_SUB, $1, $3); }
+    | expr '*' expr { $$ = ast_new_binary(OP_MUL, $1, $3); }
+    | expr '/' expr { $$ = ast_new_binary(OP_DIV, $1, $3); }
+    | expr '%' expr { $$ = ast_new_binary(OP_MOD, $1, $3); }
+    | expr '<' expr { $$ = ast_new_binary(OP_LT, $1, $3); }
+    | expr '>' expr { $$ = ast_new_binary(OP_GT, $1, $3); }
+    | '-' expr %prec NEG { $$ = ast_new_unary('-', $2); }
     | '(' expr ')' { $$ = $2; }
-    | primary { $$ = $1; }
+    | primary
     ;
 
 primary:
     L_INT { $$ = ast_new_int($1); }
     | L_STR { $$ = ast_new_str($1); }
-    | L_CHR { $$ = ast_new_str($1); }
-    | L_BOOL { $$ = ast_new_str($1); }
+    | L_BOOL { $$ = ast_new_bool($1); }
     | ID_VAR { $$ = ast_new_var($1); }
-    | call_expr { $$ = $1; }
+    | call_expr
     ;
 
 call_expr:
-    IDENTIFIER '(' expr_list_opt ')' {
+    ID '(' expr_list_opt ')' {
         $$ = ast_new_call($1, $3);
     }
     ;
@@ -226,22 +240,11 @@ expr_list:
 
 /* --- TYPES --- */
 type_specifier:
-    T_STR { $$ = TYPE_STRING; }
-    | T_CHAR { $$ = TYPE_CHAR; }
+    T_STR { $$ = TYPE_STR; }
     | T_BOOL { $$ = TYPE_BOOL; }
     | T_NONE { $$ = TYPE_VOID; }
-    | T_SINT8 { $$ = TYPE_SINT8; }
-    | T_SINT16 { $$ = TYPE_SINT16; }
-    | T_SINT32 { $$ = TYPE_SINT32; }
-    | T_SINT64 { $$ = TYPE_SINT64; }
-    | T_UINT8 { $$ = TYPE_UINT8; }
-    | T_UINT16 { $$ = TYPE_UINT16; }
-    | T_UINT32 { $$ = TYPE_UINT32; }
-    | T_UINT64 { $$ = TYPE_UINT64; }
+    | T_SINT { $$ = TYPE_SINT; }
+    | T_UINT { $$ = TYPE_UINT; }
     ;
 
 %%
-
-int main(){
-    yyparse();
-}

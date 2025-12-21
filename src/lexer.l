@@ -2,6 +2,7 @@
 %{
     #include "parser.h"
     #include "stringbuf.h"
+    #include "utils.c"
     #include <stdio.h>
     #include <stdlib.h>
     #include <stdint.h>
@@ -34,11 +35,11 @@ IGNORE [ \t\n]+
 <BLOCK_COMMENT>(.|\n) { /* Ignore block-comment */ }
 
 
-"true"{
+"Yes" {
     yylval.nr = 1;
     return L_BOOL;
 }
-"false"{
+"No" {
     yylval.nr = 0;
     return L_BOOL;
 }

@@ -24,6 +24,7 @@ typedef enum {
     NODE_IF,
 
     NODE_FOR,
+    NODE_FOR_DECL,
     NODE_FOR_VAR,
     NODE_WHILE,
 
@@ -43,86 +44,89 @@ typedef struct ast_node {
     /* Line for errors (e.g. types)*/
     int line;
     /* For linked lists */
-    ast_node *next;
+    struct ast_node *next;
 
     /* Data container */
     union {
         struct {
             // linked list of statements
-            ast_node *stmts;
+            struct ast_node *stmts;
         } block;
 
 
         struct {
             char *name;
             // linked list of parameters decls
-            ast_node *params;
+            struct ast_node *params;
             yafl_t return_type;
             // linked list of statements
-            ast_node *body;
+            struct ast_node *body;
         } func;
         struct {
             yafl_t type;
             char *name;
         } param;
         struct {
-            ast_node *value;
+            struct ast_node *value;
         } ret;
         struct {
             char *name;
             // linked list of args
-            ast_node *args;
+            struct ast_node *args;
         } call;
 
 
         struct {
             yafl_t type;
             char *name;
-            ast_node *init;
+            struct ast_node *init;
         } decl;
         struct {
             char *name;
-            ast_node *value;
+            struct ast_node *value;
         } assign;
 
 
         struct {
-            ast_node *condition;
-            ast_node *then_block;
-            ast_node *else_block;
+            struct ast_node *condition;
+            struct ast_node *then_block;
+            struct ast_node *else_block;
         } if_stmt;
         struct {
             // loop variable
-            ast_node *var;
+            struct ast_node *var;
             // range
-            ast_node *start;
-            ast_node *end;
-            ast_node *step;
+            struct ast_node *start;
+            struct ast_node *end;
+            struct ast_node *step;
 
-            ast_node *body;
+            struct ast_node *body;
         } for_loop;
-        struct {
+        struct{
             yafl_t type;
+            char *name;
+        } for_decl;
+        struct {
             char *name;
         } for_var;
         struct {
-            ast_node *condition;
-            ast_node *body;
+            struct ast_node *condition;
+            struct ast_node *body;
         } while_loop;
 
         struct {
             // Currently only print one string
-            ast_node *arg;
+            struct ast_node *arg;
         } print;
 
         struct {
             bin_op_t op;
-            ast_node *left;
-            ast_node *right;
+            struct ast_node *left;
+            struct ast_node *right;
         } binary;
         struct {
             bin_op_t op;
-            ast_node *operand;
+            struct ast_node *operand;
         } unary;
 
 
@@ -154,10 +158,10 @@ ast_node *ast_new_assign(char* name, ast_node* value);
 
 ast_node *ast_new_if(ast_node* condition, ast_node* then_block, ast_node* else_block);
 
-ast_node *ast_new_for(char* var, ast_node* start, ast_node* end, ast_node* step, ast_node* body);
+ast_node *ast_new_for(ast_node* var, ast_node* start, ast_node* end, ast_node* step, ast_node* body);
 ast_node *ast_new_while(ast_node* cond, ast_node* body);
 
-ast_node *ast_new_print(char* arg);
+ast_node *ast_new_print(ast_node* arg);
 
 ast_node *ast_new_binary(bin_op_t op, ast_node* left, ast_node* right);
 ast_node *ast_new_unary(un_op_t op, ast_node* operand);
@@ -174,7 +178,7 @@ ast_node *ast_append(ast_node* list, ast_node* new_node);
 ast_node *ast_append(ast_node *list, ast_node *node);
 
 /* Utilities */
-void ast_dump(ast_node *node, FILE *fname);
+void ast_print_dot(ast_node *node, const char *filename);
 void ast_free(ast_node *node);
 
 #endif // _AST_H_

@@ -1,12 +1,11 @@
-# Ignore executables (no file extension, marked as executable)
-*
-!Makefile
-!*/
-!*.*
+# Ignore build executable
+src/build/*
+src/yaflc
 
-# Ignore compiled object files
-*.o
 
 # Ignore Latex Junk
 doc/build/*
 !doc/build/report.pdf
+
+# Ignore VsCode
+.vscode
