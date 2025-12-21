@@ -16,16 +16,18 @@ void str_reset() {
 
 void str_append(const char *str, int len) {
     /* Dynamic allocation */
-    while (str_size + len + 1 > str_capacity) {
-        str_capacity = (str_capacity == 0) ? 4 : str_capacity * 2;
+    if (str_size + len + 1 > str_capacity) {
+        while (str_size + len + 1 > str_capacity) {
+            str_capacity = (str_capacity == 0) ? 16 : str_capacity * 2;
+        }
+        str_buffer = realloc(str_buffer, str_capacity);
+        
+        if (!str_buffer) {
+            fprintf(stderr, "realloc failed in stringbuf\n");
+            exit(1);
+        }
     }
-    str_buffer = realloc(str_buffer, str_capacity);
-
-    if (!str_buffer) {
-        fprintf(stderr, "realloc failed in stringbuf\n");
-        exit(1);
-    }
-    memcpy(str_buffer + str_capacity, str, len);
+    memcpy(str_buffer + str_size, str, len);
     str_size += len;
     str_buffer[str_size] = '\0';
 }

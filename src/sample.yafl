@@ -4,7 +4,7 @@ fn square(int : |x|) -> int {
 
 fn start() -> int {
     int |limit| <- #5;
-    print(>>Running Loop up to %d...\n<<, |limit|);
+    print(>>Running Loop up to %d...\n<< {-, |limit| -});
 
     for int |i| in range(#1, #6, #1) {
 
@@ -13,12 +13,12 @@ fn start() -> int {
 
         ~~ 4. If/Else Logic
         if (|res| > #10) {
-            print(>>Big Number: %d squared is %d\n<<, |i|, |res|);
+            print(>>Big Number: %d squared is %d\n<< {-, |i|, |res|-});
         } else {
-            print(>>Small Number: %d squared is %d\n<<, |i|, |res|);
+            print(>>Small Number: %d squared is %d\n<< {- , |i|, |res| -});
         }
     }
 
     print(>>Done!\n<<);
-    return #0;
+    ret #0;
 }

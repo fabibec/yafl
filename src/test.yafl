@@ -1,7 +1,7 @@
-fn test() -> int {
-    int |x| <- #5;
-    int |y| <- #3;
+fn start() -> int {
+    int |x| <- 10#5;
+    int |y| <- 10#3;
     int |result| <- |x| + |y|;
     print(>>Result is ready<<);
-    ret #0;
+    ret 10#0;
 }

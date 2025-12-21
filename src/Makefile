@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-O3 -Wall -ggdb
-LDFLAGS=-Ibuild -Ilib
+LDFLAGS=-Ibuild -Ilib -I../vm3/vm
 
 all: build yaflc
 
@@ -11,6 +11,12 @@ build/stringbuf.o: lib/stringbuf.c
 	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
 
 build/ast.o: lib/ast.c
+	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
+
+build/optim.o: lib/optim.c
+	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
+
+build/codegen.o: lib/codegen.c
 	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
 
 build/main.o: main.c
@@ -28,7 +34,7 @@ build/lexer.c: lexer.l | build/parser.c
 build/lexer.o: build/lexer.c
 	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
 
-yaflc: build/lexer.o build/parser.o build/stringbuf.o build/ast.o build/main.o
+yaflc: build/lexer.o build/parser.o build/stringbuf.o build/ast.o build/optim.o build/codegen.o build/main.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
 clean:

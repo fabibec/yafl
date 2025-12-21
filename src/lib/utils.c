@@ -29,3 +29,16 @@ int has_start_function(ast_node *node) {
     }
     return 0;
 }
+
+/* Helper to convert type to string */
+const char *type_to_string(yafl_t type) {
+    switch (type) {
+        case TYPE_VOID: return "none";
+        case TYPE_BOOL: return "bool";
+        case TYPE_STR: return "str";
+        case TYPE_FUNC: return "func";
+        case TYPE_SINT: return "int";
+        case TYPE_UINT: return "uint";
+        default: return "unknown";
+    }
+}

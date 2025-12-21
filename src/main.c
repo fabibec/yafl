@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include "ast.h"
+#include "stringbuf.h"
 
 extern ast_node *root;
 extern int yyparse();
+extern int yylex_destroy();
 extern FILE *yyin;
 
 int main(int argc, char **argv) {
@@ -16,14 +18,21 @@ int main(int argc, char **argv) {
 
     printf("Parsing...\n");
     int result = yyparse();
+    int ret_code = 0;
 
     if (result == 0 && root) {
         printf("Parse successful!\n");
         ast_print_dot(root, "ast.dot");
         ast_free(root);
-        return 0;
     } else {
         fprintf(stderr, "Parse failed!\n");
-        return 1;
+        ret_code = 1;
     }
+
+    // Free everything
+    fclose(yyin);
+    str_free();
+    yylex_destroy();
+
+    return ret_code;
 }

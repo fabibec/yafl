@@ -57,7 +57,13 @@ IGNORE [ \t\n]+
     yylval.nr = strtol(yytext + 3, NULL, 10);
     return L_INT;
 }
+"#"{HEX_NUM} {
+
+    yylval.nr = strtol(yytext + 1, NULL, 16);
+    return L_INT;
+}
 "16#"{HEX_NUM} {
+
     yylval.nr = strtol(yytext + 3, NULL, 16);
     return L_INT;
 }
@@ -88,17 +94,8 @@ IGNORE [ \t\n]+
     BEGIN(INITIAL);
     return L_STR;
 }
-<STRING_STATE>.* { str_append(yytext, yyleng); }
+<STRING_STATE>(.|\n) { str_append(yytext, yyleng); }
 
-
-{VAR_IDENT} {
-    yylval.str = strip_pipes(yytext);
-    return ID_VAR;
-}
-{IDENT} {
-    yylval.str = strdup(yytext);
-    return ID;
-}
 
 "fn" { return KW_FN; }
 "ret" { return KW_RET; }
@@ -120,6 +117,15 @@ IGNORE [ \t\n]+
 "none" { return T_NONE; }
 "int"|"sint" { return T_SINT; }
 "uint" { return T_UINT; }
+
+{VAR_IDENT} {
+    yylval.str = strip_pipes(yytext);
+    return ID_VAR;
+}
+{IDENT} {
+    yylval.str = strdup(yytext);
+    return ID;
+}
 
 {IGNORE} ;
 
