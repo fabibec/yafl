@@ -130,6 +130,10 @@ var_decl_stmt:
     type_specifier ID_VAR S_LARROW expr ';' {
         $$ = ast_new_decl($1, $2, $4);
     }
+    | type_specifier ID_VAR ';' {
+        /* automatic zero-inits */
+        $$ = ast_new_decl($1, $2, NULL);
+    }
     ;
 
 assignment_stmt:

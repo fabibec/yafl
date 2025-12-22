@@ -36,6 +36,8 @@ typedef struct hashmap {
 typedef struct scope {
     hashmap *map;
     struct scope *parent;
+    // vars in current scope (start from 0)
+    int var_count;
     int level;
 } scope;
 

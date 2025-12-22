@@ -2,7 +2,7 @@
 %{
     #include "parser.h"
     #include "stringbuf.h"
-    #include "utils.c"
+    #include "utils.h"
     #include <stdio.h>
     #include <stdlib.h>
     #include <stdint.h>

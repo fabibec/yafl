@@ -21,7 +21,7 @@ void str_append(const char *str, int len) {
             str_capacity = (str_capacity == 0) ? 16 : str_capacity * 2;
         }
         str_buffer = realloc(str_buffer, str_capacity);
-        
+
         if (!str_buffer) {
             fprintf(stderr, "realloc failed in stringbuf\n");
             exit(1);
@@ -36,7 +36,7 @@ void chr_append(const char c) {
     str_append(&c, 1);
 }
 
-void str_free() {
+void strb_free() {
     if(str_buffer){
         free(str_buffer);
     }

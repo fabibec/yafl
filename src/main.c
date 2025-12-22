@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "ast.h"
+#include "codegen.h"
 #include "stringbuf.h"
 
 extern ast_node *root;
@@ -23,6 +24,7 @@ int main(int argc, char **argv) {
     if (result == 0 && root) {
         printf("Parse successful!\n");
         ast_print_dot(root, "ast.dot");
+        codegen(root, "code.yaflb");
         ast_free(root);
     } else {
         fprintf(stderr, "Parse failed!\n");
@@ -31,7 +33,7 @@ int main(int argc, char **argv) {
 
     // Free everything
     fclose(yyin);
-    str_free();
+    strb_free();
     yylex_destroy();
 
     return ret_code;

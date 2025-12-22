@@ -1,5 +1,5 @@
 #include "symtab.h"
-#include "utils.c"
+#include "utils.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -16,6 +16,9 @@ static unsigned int hash(const char *str) {
     }
     return hash;
 }
+
+/* Forward declaration */
+void _hashmap_resize(hashmap *map);
 
 /* --- Hash Map --- */
 hashmap *hashmap_create(int initial_capacity, float load_factor) {
@@ -137,10 +140,11 @@ symtab *symtab_create(void) {
     table->total_scopes = 0;
 
     // Create global scope
-    table->current = malloc(sizeof(symtab));
+    table->current = malloc(sizeof(scope));
     table->current->map = hashmap_create(16, 0.75f);
     table->current->parent = NULL;
     table->current->level = 0;
+    table->current->var_count = 0;
 
     return table;
 }
@@ -165,6 +169,7 @@ void symtab_enter_scope(symtab *table) {
     new_scope->map = hashmap_create(8, 0.75f);
     new_scope->parent = table->current;
     new_scope->level = table->current->level + 1;
+    new_scope->var_count = 0;
 
     table->current = new_scope;
     table->total_scopes++;
@@ -193,9 +198,8 @@ symbol *symtab_add_var(symtab *table, const char *name, yafl_t type) {
     symbol *sym = hashmap_put(table->current->map, name, type);
     if (!sym) return NULL;
 
-    // TODO add a counter maybe
-    sym->var_nr = -1;
-
+    // Placeholder
+    sym->var_nr = table->current->var_count++;
     return sym;
 }
 
@@ -240,6 +244,7 @@ void symtab_dump(symtab *table) {
     printf("--- Symbol Table Dump ---\n");
     printf("Total scopes created: %d\n", table->total_scopes);
     printf("Current scope depth: %d\n", table->current->level);
+    printf("Current scope var counter: %d\n", table->current->var_count);
     printf("\n");
 
     // Print from current scope to global

@@ -2,6 +2,9 @@
   case MYMUL:
     op_mymul(exec);
     break;
+  case CALL_PC:
+    op_CALL_PC(exec);
+    break;
   case ADD:
     op_add(exec);
     break;
