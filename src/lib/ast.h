@@ -36,7 +36,8 @@ typedef enum {
     NODE_INT,
     NODE_STR,
     NODE_BOOL,
-    NODE_VAR
+    NODE_VAR,
+    NODE_CAST
 } ast_node_t;
 
 typedef struct ast_node {
@@ -74,7 +75,6 @@ typedef struct ast_node {
             // linked list of args
             struct ast_node *args;
         } call;
-
 
         struct {
             yafl_t type;
@@ -125,7 +125,7 @@ typedef struct ast_node {
             struct ast_node *right;
         } binary;
         struct {
-            bin_op_t op;
+            un_op_t op;
             struct ast_node *operand;
         } unary;
 
@@ -142,6 +142,10 @@ typedef struct ast_node {
         struct {
             char *name;
         } var;
+        struct {
+            yafl_t type;
+            struct ast_node *expr;
+        } cast;
     } data;
 
 } ast_node;
@@ -170,6 +174,7 @@ ast_node *ast_new_int(uint64_t value);
 ast_node *ast_new_str(char* value);
 ast_node *ast_new_bool(bool value);
 ast_node *ast_new_var(char* name);
+ast_node *ast_new_cast(yafl_t type, ast_node *expr);
 
 /* Helper to link lists */
 ast_node *ast_append(ast_node* list, ast_node* new_node);

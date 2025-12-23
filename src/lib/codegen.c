@@ -10,7 +10,6 @@
 /* Global state */
 static prog_t *prog = NULL;
 static symtab *prog_symtab = NULL;
-static int prog_var_counter = 0;
 
 /* Forward declarations */
 static void codegen_stmt(ast_node *node);
@@ -50,12 +49,22 @@ yafl_t get_expr_type(symtab *table, ast_node *node) {
             symbol *sym = symtab_lookup(table, node->data.call.name);
             return sym ? sym->func.ret_type : TYPE_VOID;
         }
+
+        case NODE_UNARY:
+            if (node->data.unary.op == OP_NOT) {
+                return TYPE_BOOL;
+            }
+            return get_expr_type(table, node->data.unary.operand);
+
+        case NODE_CAST:
+            return node->data.cast.type;
+
         default:
             return TYPE_VOID;
     }
 }
 
-/* --- ERROR REPORTING --- */
+/* --- REPORTING --- */
 void codegen_error(int line, const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
@@ -66,7 +75,78 @@ void codegen_error(int line, const char *fmt, ...) {
     exit(1);
 }
 
+void codegen_warn(int line, const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    fprintf(stderr, "Yafl codegen warning (line %d): ", line);
+    vfprintf(stderr, fmt, args);
+    fprintf(stderr, "\n");
+    va_end(args);
+    exit(1);
+}
+
 /* --- Codegen --- */
+
+/* Helper for automatic zero-init (local + global vars) */
+static void codegen_zero_init(yafl_t type, int line) {
+    switch (type){
+        case TYPE_STR:
+            // Empty String for string type
+            val_t *str = v_str_create();
+            int const_id = prog_new_constant(prog, str);
+            prog_add_num(prog, const_id);
+            prog_add_op(prog, CONSTANT);
+            break;
+        case TYPE_BOOL:
+        case TYPE_SINT:
+        case TYPE_UINT:
+            prog_add_num(prog, 0);
+            break;
+        default:
+            codegen_error(line, "Zero-init on type '%s' is not implemented", type_to_string(type));
+            break;
+    }
+}
+
+static symbol *codegen_register_var(char *name, yafl_t type, int line){
+    symbol *sym = symtab_add_var(prog_symtab, name, type);
+    if (!sym) {
+        codegen_error(line, "Variable '%s' already declared", name);
+    }
+    return sym;
+}
+
+static symbol *codegen_lookup_var(char *name, int line){
+    symbol *sym = symtab_lookup(prog_symtab, name);
+    if (!sym || sym->type == TYPE_FUNC) {
+        codegen_error(line, "Variable '%s' not declared", name);
+    }
+    return sym;
+}
+
+/* Helper to lookup variable id and generate the correct OPCODE (local/global)*/
+static void codegen_set_get_var(char *name, int line, enum opcodes op_type){
+    symbol *sym = codegen_lookup_var(name, line);
+    prog_add_num(prog, sym->var.var_nr);
+    if(op_type == GETVAR){
+        prog_add_op(prog, (sym->var.global) ? GETGLOBAL : GETVAR);
+    } else {
+        prog_add_op(prog, (sym->var.global) ? SETGLOBAL : SETVAR);
+    }
+}
+
+static int yafl_t_to_vm_type(yafl_t type, int line) {
+    switch (type) {
+        case TYPE_SINT:
+        case TYPE_UINT:
+        case TYPE_BOOL: return T_NUM;
+        case TYPE_STR:  return T_STR;
+        default:
+            codegen_error(line, "Unsupported type for cast: %s", type_to_string(type));
+            return -1; // Should not reach here
+    }
+}
+
 static void codegen_expr(ast_node *node) {
     if (!node) return;
 
@@ -88,13 +168,7 @@ static void codegen_expr(ast_node *node) {
         }
 
         case NODE_VAR: {
-            symbol *sym = symtab_lookup(prog_symtab, node->data.var.name);
-            if (!sym) {
-                codegen_error(node->line, "Variable '%s' not declared",
-                            node->data.var.name);
-            }
-            prog_add_num(prog, sym->var_nr);
-            prog_add_op(prog, GETVAR);
+            codegen_set_get_var(node->data.var.name, node->line, GETVAR);
             break;
         }
 
@@ -124,9 +198,28 @@ static void codegen_expr(ast_node *node) {
 
         case NODE_UNARY: {
             codegen_expr(node->data.unary.operand);
+            ast_node *operand = node->data.unary.operand;
             switch (node->data.unary.op) {
                 case OP_NEG: prog_add_op(prog, NEG); break;
                 case OP_NOT: prog_add_op(prog, NOT); break;
+                case OP_INC:
+                    prog_add_op(prog, INC);
+                    // For variables we need to not only increment but also set
+                    if (operand->type == NODE_VAR) {
+                        prog_add_op(prog, DUP);
+                        codegen_set_get_var(operand->data.var.name,
+                            operand->line, SETVAR);
+                    }
+                    break;
+                case OP_DEC:
+                    prog_add_op(prog, DEC);
+                    // For variables we need to not only decrement but also set
+                    if (operand->type == NODE_VAR) {
+                        prog_add_op(prog, DUP);
+                        codegen_set_get_var(operand->data.var.name,
+                            operand->line, SETVAR);
+                    }
+                    break;
                 default:
                     codegen_error(node->line, "Unknown unary operator");
             }
@@ -155,6 +248,13 @@ static void codegen_expr(ast_node *node) {
             break;
         }
 
+        case NODE_CAST: {
+            codegen_expr(node->data.cast.expr);
+            prog_add_num(prog, yafl_t_to_vm_type(node->data.cast.type, node->line));
+            prog_add_op(prog, CAST);
+            break;
+        }
+
         default:
             codegen_error(node->line, "Invalid expression node type");
     }
@@ -170,47 +270,19 @@ static void codegen_stmt(ast_node *node) {
                 codegen_expr(node->data.decl.init);
             } else {
                 // Auto-init to zero
-                switch (node->data.decl.type)
-                {
-                    case TYPE_STR:
-                        // Empty String for string type
-                        val_t *str = v_str_create();
-                        int const_id = prog_new_constant(prog, str);
-                        prog_add_num(prog, const_id);
-                        prog_add_op(prog, CONSTANT);
-                        break;
-                    case TYPE_BOOL:
-                    case TYPE_SINT:
-                    case TYPE_UINT:
-                        prog_add_num(prog, 0);
-                    default:
-                        codegen_error(node->line, "Zero-init on type '%s' is not implemented", type_to_string(node->data.decl.type));
-                        break;
-                }
+                codegen_zero_init(node->data.decl.type, node->line);
             }
 
-            // Add variable - var_nr is relative in symtab for codegen we have a global counter
-            symbol *sym = symtab_add_var(prog_symtab, node->data.decl.name, node->data.decl.type);
-            if (!sym) {
-                codegen_error(node->line, "Variable '%s' already declared", node->data.decl.name);
-            }
-            sym->var_nr = prog_var_counter++;
-
-            prog_add_num(prog, sym->var_nr);
+            symbol *sym = codegen_register_var(node->data.decl.name,
+                node->data.decl.type, node->line);
+            prog_add_num(prog, sym->var.var_nr);
             prog_add_op(prog, SETVAR);
             break;
         }
 
         case NODE_ASSIGN: {
-            symbol *sym = symtab_lookup(prog_symtab, node->data.assign.name);
-            if (!sym) {
-                codegen_error(node->line, "Variable '%s' not declared",
-                            node->data.assign.name);
-            }
-
             codegen_expr(node->data.assign.value);
-            prog_add_num(prog, sym->var_nr);
-            prog_add_op(prog, SETVAR);
+            codegen_set_get_var(node->data.assign.name, node->line, SETVAR);
             break;
         }
 
@@ -236,8 +308,8 @@ static void codegen_stmt(ast_node *node) {
 
         case NODE_IF: {
             codegen_expr(node->data.if_stmt.condition);
-            prog_add_op(prog, JUMPF);
             int else_jmp_pc = prog_add_num(prog, -1);
+            prog_add_op(prog, JUMPF);
 
             codegen_stmt(node->data.if_stmt.then_block);
 
@@ -281,20 +353,62 @@ static void codegen_stmt(ast_node *node) {
         }
 
         case NODE_FOR: {
-            // TODO: Implement for loops
-            codegen_error(node->line, "For loops not yet implemented");
+            // Equivalent to:
+            //   i = start
+            //   while (i < end) {
+            //     body
+            //     i += step
+            //   }
+
+            // Generate loop variable
+            symtab_enter_scope(prog_symtab); // loop_var gets extra scope
+            ast_node *var_node = node->data.for_loop.var;
+            symbol *loop_var;
+            if (var_node->type == NODE_FOR_DECL){
+                loop_var = codegen_register_var(var_node->data.for_decl.name, var_node->data.for_decl.type, var_node->line);
+            } else {
+                loop_var = codegen_lookup_var(var_node->data.for_var.name, var_node->line);
+            }
+
+            codegen_expr(node->data.for_loop.start);
+            codegen_set_get_var(loop_var->name, node->data.for_loop.start->line, SETVAR);
+
+            int cond_pc = prog_next_pc(prog);
+            codegen_expr(node->data.for_loop.end);
+            codegen_set_get_var(loop_var->name, var_node->line, GETVAR);
+            prog_add_op(prog, LESS);
+
+            int exit_jmp = prog_add_num(prog, -1);
+            prog_add_op(prog, JUMPF);
+
+            codegen_stmt(node->data.for_loop.body);
+
+            codegen_expr(node->data.for_loop.step);
+            codegen_set_get_var(loop_var->name, node->data.for_loop.step->line, GETVAR);
+            prog_add_op(prog, ADD);
+            codegen_set_get_var(loop_var->name, node->data.for_loop.step->line, SETVAR);
+
+            prog_add_num(prog, cond_pc);
+            prog_add_op(prog, JUMP);
+
+            int ext_jmp_trgt = prog_next_pc(prog);
+            prog_set_num(prog, exit_jmp, ext_jmp_trgt);
+
+            symtab_exit_scope(prog_symtab);
             break;
         }
 
+        case NODE_UNARY:
+        case NODE_BINARY:
         case NODE_CALL:
             codegen_expr(node);
-            prog_add_op(prog, DISCARD);  // Discard return value
+            if (get_expr_type(prog_symtab, node) != TYPE_VOID) {
+                prog_add_op(prog, DISCARD);
+            }
             break;
 
         default:
-            // Try as expression
-            codegen_expr(node);
-            prog_add_op(prog, DISCARD);
+            codegen_error(node->line, "Invalid statement node type");
             break;
     }
 }
@@ -319,31 +433,42 @@ void codegen(ast_node *root, char *filename) {
                 codegen_error(0, "Function '%s' already declared",
                             node->data.func.name);
             }
+        } else if (node->type == NODE_DECL) {
+            symbol *sym = codegen_register_var(node->data.decl.name,
+                node->data.decl.type, node->line);
+
+            // Initialize global
+            if (node->data.decl.init) {
+                codegen_expr(node->data.decl.init);
+            } else {
+                codegen_zero_init(node->data.decl.type, node->line);
+            }
+            prog_add_num(prog, sym->var.var_nr);
+            prog_add_op(prog, SETGLOBAL);
         }
-        // TODO: codegen for global vars
-
-        // JUMP to start
-        prog_add_num(prog, 0);
-        // i manage mappings myself so no lookups needed
-        start_pc = prog_add_num(prog, -1);
-        prog_add_op(prog, CALL_PC);
-
-        // End program
-        prog_add_op(prog, HALT);
-
-        // Code looks like:
-        // -> imports (maybe in the future)
-        // -> global vars
-        // -> jmp to fn start()
-        // -> HALT
-        // -> function bodies
     }
+    // JUMP to start
+    prog_add_num(prog, 0);
+    // i manage mappings myself so no lookups needed
+    start_pc = prog_add_num(prog, -1);
+    prog_add_op(prog, CALL_PC);
+
+    // End program
+    prog_add_op(prog, HALT);
+
+    // Code looks like:
+    // -> imports (maybe in the future)
+    // -> global vars
+    // -> jmp to fn start()
+    // -> HALT
+    // -> function bodies
 
     printf("Registered %d functions\n", prog_symtab->current->map->size);
 
     // Second pass: Generate actual function bodies
     for (ast_node *node = root; node; node = node->next) {
-        // Everything else done in first pass
+        // Global vars done in the first pass
+        // this works since it iterates over the toplevel linked list
         if (node->type != NODE_FUNC)
             continue;
 
@@ -357,6 +482,8 @@ void codegen(ast_node *root, char *filename) {
 
         // Enter function scope
         symtab_enter_scope(prog_symtab);
+        // The CALL/CALL_PC opcodes creates a stack frame so variables should start from zero again
+        prog_symtab->current->var_offset = 0;
 
         // Parameters become locals 0..n-1
         for (ast_node *p = node->data.func.params; p; p = p->next) {
@@ -372,7 +499,6 @@ void codegen(ast_node *root, char *filename) {
         }
 
         // "Free" the ids of the current scope
-        prog_var_counter -= prog_symtab->current->var_count;
         symtab_exit_scope(prog_symtab);
     }
 

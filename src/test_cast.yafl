@@ -1,0 +1,21 @@
+fn start() -> int {
+    int |i| <- to<int>(Yes);
+    print(>>Cast bool true to int: << + to<str>(|i|));
+
+    int |j| <- to<int>(No);
+    print(>>Cast bool false to int: << + to<str>(|j|));
+
+    bool |k| <- to<bool>(10);
+    print(>>Cast int 10 to bool: << + to<str>(|k|));
+
+    bool |l| <- to<bool>(0);
+    print(>>Cast int 0 to bool: << + to<str>(|l|));
+
+    str |m| <- to<str>(-#123);
+    print(>>Cast int 123 to str: << + |m|);
+
+    bool |x| <- to<bool>(>>This shouldnt work<<);
+    print(>>Cast int 123 to str: << + to<str>(|x|));
+
+    ret 0;
+}

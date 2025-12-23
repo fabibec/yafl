@@ -97,7 +97,7 @@ void hashmap_dump(hashmap *map, int scope_level) {
             if (s->type == TYPE_FUNC) {
                 printf(" (pc=%d, ret=%s)", s->func.pc, type_to_string(s->func.ret_type));
             } else {
-                printf(" (var_nr=%d)", s->var_nr);
+                printf(" (var_nr=%d)", s->var.var_nr);
             }
             printf("\n");
         }
@@ -145,6 +145,7 @@ symtab *symtab_create(void) {
     table->current->parent = NULL;
     table->current->level = 0;
     table->current->var_count = 0;
+    table->current->var_offset = 0;
 
     return table;
 }
@@ -170,6 +171,7 @@ void symtab_enter_scope(symtab *table) {
     new_scope->parent = table->current;
     new_scope->level = table->current->level + 1;
     new_scope->var_count = 0;
+    new_scope->var_offset = table->current->var_offset + table->current->var_count;
 
     table->current = new_scope;
     table->total_scopes++;
@@ -198,8 +200,8 @@ symbol *symtab_add_var(symtab *table, const char *name, yafl_t type) {
     symbol *sym = hashmap_put(table->current->map, name, type);
     if (!sym) return NULL;
 
-    // Placeholder
-    sym->var_nr = table->current->var_count++;
+    sym->var.global = (!table->current->level);
+    sym->var.var_nr = table->current->var_offset + table->current->var_count++;
     return sym;
 }
 

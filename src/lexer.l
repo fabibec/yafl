@@ -34,6 +34,13 @@ IGNORE [ \t\n]+
 <BLOCK_COMMENT>"-}" { BEGIN(INITIAL); }
 <BLOCK_COMMENT>(.|\n) { /* Ignore block-comment */ }
 
+"<=" { return OP_BIN_LE; }
+">=" { return OP_BIN_GE; }
+"~=" { return OP_BIN_NE; }
+"and" { return OP_BIN_AND; }
+"or" { return OP_BIN_OR; }
+"++" { return OP_UN_INC; }
+"--" { return OP_UN_DEC; }
 
 "Yes" {
     yylval.nr = 1;
@@ -44,7 +51,14 @@ IGNORE [ \t\n]+
     return L_BOOL;
 }
 
-
+{DEC_NUM} {
+    yylval.nr = strtol(yytext, NULL, 10);
+    return L_INT;
+}
+"#"{HEX_NUM} {
+    yylval.nr = strtol(yytext + 1, NULL, 16);
+    return L_INT;
+}
 "2#"{BIN_NUM} {
     yylval.nr = strtol(yytext + 2, NULL, 2);
     return L_INT;
@@ -55,11 +69,6 @@ IGNORE [ \t\n]+
 }
 "10#"{DEC_NUM} {
     yylval.nr = strtol(yytext + 3, NULL, 10);
-    return L_INT;
-}
-"#"{HEX_NUM} {
-
-    yylval.nr = strtol(yytext + 1, NULL, 16);
     return L_INT;
 }
 "16#"{HEX_NUM} {
@@ -103,11 +112,14 @@ IGNORE [ \t\n]+
 "if" { return KW_IF; }
 "else"  { return KW_ELSE; }
 "while" { return KW_WHILE; }
+"where" { return KW_WHERE; }
 "for" { return KW_FOR; }
 "in" { return KW_IN; }
 "range" { return KW_RANGE; }
 
 "print" { return KW_PRINT; }
+
+"to" { return KW_TO; }
 
 "->" { return S_RARROW; }
 "<-" { return S_LARROW; }
@@ -132,9 +144,4 @@ IGNORE [ \t\n]+
 . { return *yytext; }
 
 %%
-
-/*int main(){
-    while(yylex());
-    return 0;
-}*/
 

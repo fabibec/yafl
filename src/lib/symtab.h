@@ -1,6 +1,7 @@
 #ifndef _SYMTAB_H_
 #define _SYMTAB_H_
 #include "types.h"
+#include <stdbool.h>
 
 // Size of symbol table hashmap
 #define SYMTAB_SIZE 1024
@@ -11,7 +12,10 @@ typedef struct symbol {
     yafl_t type;
     union {
         // variable number
-        int var_nr;
+        struct {
+            int var_nr;
+            bool global;
+        } var;
         struct {
             // program counter
             int pc;
@@ -39,6 +43,7 @@ typedef struct scope {
     // vars in current scope (start from 0)
     int var_count;
     int level;
+    int var_offset;
 } scope;
 
 /* Symbol table state */

@@ -125,6 +125,13 @@ ast_node *ast_new_var(char *name) {
     return node;
 }
 
+ast_node *ast_new_cast(yafl_t type, ast_node *expr) {
+    ast_node *node = ast_new_node(NODE_CAST);
+    node->data.cast.type = type;
+    node->data.cast.expr = expr;
+    return node;
+}
+
 
 /* Append node to end of linked list */
 ast_node *ast_append(ast_node *list, ast_node *node) {
@@ -161,6 +168,7 @@ static const char *node_type_str(ast_node_t type) {
         case NODE_BOOL: return "BOOL";
         case NODE_VAR: return "VAR";
         case NODE_CALL: return "CALL";
+        case NODE_CAST: return "CAST";
         default: return "UNKNOWN";
     }
 }
@@ -296,6 +304,9 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
         case NODE_VAR:
             snprintf(label, sizeof(label), "VAR\\n%s", node->data.var.name);
             break;
+        case NODE_CAST:
+            snprintf(label, sizeof(label), "CAST\\n%s", type_str(node->data.cast.type));
+            break;
         default:
             snprintf(label, sizeof(label), "%s", node_type_str(node->type));
             break;
@@ -334,6 +345,13 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
         case NODE_CALL:
             if(node->data.call.args) {
                 ast_print_dot_node(fp, node->data.call.args, my_id);
+            }
+            break;
+
+
+        case NODE_CAST:
+            if(node->data.cast.expr) {
+                ast_print_dot_node(fp, node->data.cast.expr, my_id);
             }
             break;
 
@@ -468,6 +486,10 @@ void ast_free(ast_node *node) {
         case NODE_CALL:
             free(node->data.call.name);
             ast_free(node->data.call.args);
+            break;
+
+        case NODE_CAST:
+            ast_free(node->data.cast.expr);
             break;
 
 
