@@ -9,6 +9,7 @@ typedef enum {
     TYPE_FUNC,
     TYPE_SINT,
     TYPE_UINT,
+    TYPE_FLOAT
 } yafl_t;
 
 #endif

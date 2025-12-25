@@ -50,6 +50,9 @@ val_t *v_num_conv (val_t *v) {
        return &val_undef;
      }
      return v_num_new_int(nr);
+   /* Add support for real -> num */
+   case T_REAL:
+     return v_num_new_int((int)v->u.real);
    default:
     return &val_undef;
  }

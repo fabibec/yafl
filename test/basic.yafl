@@ -1,13 +1,5 @@
-{-
-Big ass testing program that checks as much features
-as possible
--}
+str |app name| <- >>Basic Test<<;
 
-~~ Global variables
-int |counter| <- #0;
-str |app name| <- >><<;
-
-~~ Recursion + Increment
 fn recur(int: |i|) -> none {
     if (|i| < #5){
         print(>>Going into recursion<<);
@@ -43,38 +35,12 @@ fn ops() -> none {
        print(>>You should not see this too<<);
     }
 
-    if(|counter| = 2){
-        print(>>Counter should be 2<<);
-    }
-
     print(>>This program is called: << + |app name|);
 }
 
-fn loops() -> none {
-    int |i|;
-    for |i| in range(5){
-        print(>>Loop 1: Iteration << + to<str>(|i|));
-    }
-
-    print(>>i is << + to<str>(|i|) + >>after loop<<);
-
-    for |i| in range(0, -2#10, -2#1) {
-        print(>>Negative: << + to<str>(|i|));
-    }
-
-    print(>>i is still << + to<str>(|i|));
-}
-
 fn start() -> int {
-    |app name| <- >>My test program<<;
-    |counter|++++;
-    int |x| <- 5;
-    int |y| <- #3;
-    int |a result| <- |x| + |y|;
-    print(>>Result is ready<< + >>, maybe ?<<);
-    print(|a result|);
-    recur(2);
+    print(>>--- Basic Test ---<<);
     ops();
-    loops();
+    recur(2);
     ret 0;
 }

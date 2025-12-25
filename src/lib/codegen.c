@@ -22,6 +22,8 @@ yafl_t get_expr_type(symtab *table, ast_node *node) {
     switch (node->type) {
         case NODE_INT:
             return TYPE_SINT;
+        case NODE_FLOAT:
+            return TYPE_FLOAT;
         case NODE_BOOL:
             return TYPE_BOOL;
         case NODE_STR:
@@ -89,19 +91,26 @@ void codegen_warn(int line, const char *fmt, ...) {
 
 /* Helper for automatic zero-init (local + global vars) */
 static void codegen_zero_init(yafl_t type, int line) {
+    int const_id;
     switch (type){
         case TYPE_STR:
             // Empty String for string type
             val_t *str = v_str_create();
-            int const_id = prog_new_constant(prog, str);
+            const_id = prog_new_constant(prog, str);
             prog_add_num(prog, const_id);
             prog_add_op(prog, CONSTANT);
             break;
+
         case TYPE_BOOL:
         case TYPE_SINT:
         case TYPE_UINT:
             prog_add_num(prog, 0);
             break;
+        case TYPE_FLOAT:
+            val_t *fl = v_real_new_double(0.0);
+            const_id = prog_new_constant(prog, fl);
+            prog_add_num(prog, const_id);
+            prog_add_op(prog, CONSTANT);
         default:
             codegen_error(line, "Zero-init on type '%s' is not implemented", type_to_string(type));
             break;
@@ -141,6 +150,7 @@ static int yafl_t_to_vm_type(yafl_t type, int line) {
         case TYPE_UINT:
         case TYPE_BOOL: return T_NUM;
         case TYPE_STR:  return T_STR;
+        case TYPE_FLOAT: return T_REAL;
         default:
             codegen_error(line, "Unsupported type for cast: %s", type_to_string(type));
             return -1; // Should not reach here
@@ -154,6 +164,14 @@ static void codegen_expr(ast_node *node) {
         case NODE_INT:
             prog_add_num(prog, node->data.integer.value);
             break;
+
+        case NODE_FLOAT: {
+            val_t *fl = v_real_new_double(node->data.float_nr.value);
+            int const_id = prog_new_constant(prog, fl);
+            prog_add_num(prog, const_id);
+            prog_add_op(prog, CONSTANT);
+            break;
+        }
 
         case NODE_BOOL:
             prog_add_num(prog, node->data.boolean.value);
@@ -249,9 +267,98 @@ static void codegen_expr(ast_node *node) {
         }
 
         case NODE_CAST: {
+            yafl_t src_type = get_expr_type(prog_symtab, node->data.cast.expr);
+            yafl_t dest_type = node->data.cast.type;
+
+            // Self cast
+            if (src_type == dest_type) {
+                codegen_expr(node->data.cast.expr);
+                break;
+            }
+
             codegen_expr(node->data.cast.expr);
-            prog_add_num(prog, yafl_t_to_vm_type(node->data.cast.type, node->line));
-            prog_add_op(prog, CAST);
+
+            if (dest_type == TYPE_BOOL) {
+                if (src_type == TYPE_SINT || src_type == TYPE_UINT) {
+                    // int -> bool: != 0
+                    prog_add_num(prog, 0);
+                    prog_add_op(prog, NOTEQUAL);
+                } else if (src_type == TYPE_FLOAT) {
+                    // float -> bool: != 0.0
+                    val_t *fl = v_real_new_double(0.0);
+                    int const_id = prog_new_constant(prog, fl);
+                    prog_add_num(prog, const_id);
+                    prog_add_op(prog, CONSTANT);
+                    prog_add_op(prog, NOTEQUAL);
+                } else if (src_type == TYPE_STR) {
+                    // str -> bool: >>Yes<< = Yes, >>No<< & else = No
+                    val_t *str_yes = v_str_new_cstr("Yes");
+                    int const_yes = prog_new_constant(prog, str_yes);
+                    prog_add_num(prog, const_yes);
+                    prog_add_op(prog, CONSTANT);
+                    prog_add_op(prog, EQUAL);
+                } else {
+                    prog_add_num(prog, yafl_t_to_vm_type(dest_type, node->line));
+                    prog_add_op(prog, CAST);
+                }
+            } else if (dest_type == TYPE_STR) {
+                if (src_type == TYPE_BOOL) {
+                    // bool -> str: Yes -> >>Yes<<, No -> >>No<< (if else bytecode)
+                    int label_false = prog_add_num(prog, -1);
+                    prog_add_op(prog, JUMPF);
+
+                    val_t *str_yes = v_str_new_cstr("Yes");
+                    int const_yes = prog_new_constant(prog, str_yes);
+                    prog_add_num(prog, const_yes);
+                    prog_add_op(prog, CONSTANT);
+
+                    int jump_end = prog_add_num(prog, -1);
+                    prog_add_op(prog, JUMP);
+
+                    int false_target = prog_next_pc(prog);
+                    prog_set_num(prog, label_false, false_target);
+
+                    val_t *str_no = v_str_new_cstr("No");
+                    int const_no = prog_new_constant(prog, str_no);
+                    prog_add_num(prog, const_no);
+                    prog_add_op(prog, CONSTANT);
+
+                    // End target
+                    int end_target = prog_next_pc(prog);
+                    prog_set_num(prog, jump_end, end_target);
+                } else {
+                    // int/float -> str: standard CAST
+                    prog_add_num(prog, yafl_t_to_vm_type(dest_type, node->line));
+                    prog_add_op(prog, CAST);
+                }
+            } else if (dest_type == TYPE_SINT || dest_type == TYPE_UINT) {
+                if (src_type == TYPE_STR) {
+                    // str -> int: 0
+                    prog_add_op(prog, DISCARD);
+                    prog_add_num(prog, 0);
+                } else {
+                    // float -> int: standard CAST
+                    prog_add_num(prog, yafl_t_to_vm_type(dest_type, node->line));
+                    prog_add_op(prog, CAST);
+                }
+            } else if (dest_type == TYPE_FLOAT) {
+                if (src_type == TYPE_STR) {
+                    // str -> float: 0.0
+                    prog_add_op(prog, DISCARD);
+                    val_t *fl = v_real_new_double(0.0);
+                    int const_id = prog_new_constant(prog, fl);
+                    prog_add_num(prog, const_id);
+                    prog_add_op(prog, CONSTANT);
+                } else {
+                    // int -> float: standard CAST
+                    prog_add_num(prog, yafl_t_to_vm_type(dest_type, node->line));
+                    prog_add_op(prog, CAST);
+                }
+            } else {
+                // Generic fallback
+                prog_add_num(prog, yafl_t_to_vm_type(node->data.cast.type, node->line));
+                prog_add_op(prog, CAST);
+            }
             break;
         }
 

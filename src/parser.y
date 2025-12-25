@@ -24,7 +24,8 @@
 %define parse.error verbose
 
 %union {
-    uint64_t nr;
+    int nr;
+    double fl_nr;
     char *str;
     ast_node *node;
     /* Type info */
@@ -33,6 +34,7 @@
 
 /* Lexer Tokens */
 %token <nr> L_INT L_BOOL
+%token <fl_nr> L_FLOAT
 %token <str> L_STR ID ID_VAR
 %token KW_FN KW_RET KW_IF KW_ELSE KW_WHILE KW_FOR KW_IN
 %token KW_RANGE KW_PRINT KW_WHERE KW_TO
@@ -40,7 +42,7 @@
 %token OP_UN_DEC OP_UN_INC
 %token OP_BIN_LE OP_BIN_GE OP_BIN_NE
 %token OP_BIN_AND OP_BIN_OR
-%token T_STR T_BOOL T_NONE T_SINT T_UINT
+%token T_STR T_BOOL T_NONE T_SINT T_UINT T_FLOAT
 
 /* Non-terminals */
 %type <node> program top_level_list top_level_item
@@ -246,6 +248,7 @@ expr:
 
 primary:
     L_INT { $$ = ast_new_int($1); }
+    | L_FLOAT { $$ = ast_new_float($1); }
     | L_STR { $$ = ast_new_str($1); }
     | L_BOOL { $$ = ast_new_bool($1); }
     | ID_VAR { $$ = ast_new_var($1); }
@@ -283,6 +286,7 @@ type_specifier:
     | T_NONE { $$ = TYPE_VOID; }
     | T_SINT { $$ = TYPE_SINT; }
     | T_UINT { $$ = TYPE_UINT; }
+    | T_FLOAT { $$ = TYPE_FLOAT; }
     ;
 
 %%

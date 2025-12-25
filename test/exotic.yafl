@@ -1,0 +1,40 @@
+fn exotic_numbers() -> none {
+    print(>>--- Exotic Numbers Test ---<<);
+
+    ~~ Binary Integers
+    int |bin| <- 2#1010; ~~ 10
+    print(>>Binary 2#1010 (10): << + to<str>(|bin|));
+
+    ~~ Octal Integers
+    int |oct| <- 8#755; ~~ 493
+    print(>>Octal 8#755 (493): << + to<str>(|oct|));
+
+    ~~ Hex Integers (Implicit & Explicit)
+    int |hex1| <- #FF; ~~ 255
+    int |hex2| <- 16#A0; ~~ 160
+    print(>>Hex #FF (255): << + to<str>(|hex1|));
+    print(>>Hex 16#A0 (160): << + to<str>(|hex2|));
+
+    ~~ Base 12 Integers
+    int |dozen| <- 12#A0; ~~ 10 * 12 + 0 = 120
+    print(>>Base12 12#A0 (120): << + to<str>(|dozen|));
+
+    ~~ Binary Floats
+    float |bin_fl| <- 2#10.1; ~~ 2.5 (2 + 0.5)
+    print(>>Binary Float 2#10.1 (2.5): << + to<str>(|bin_fl|));
+
+    ~~ Hex Floats
+    float |hex_fl| <- 16#F.8; ~~ 15 + 8/16 = 15.5
+    print(>>Hex Float 16#F.8 (15.5): << + to<str>(|hex_fl|));
+
+    ~~ Exponents
+    float |exp_fl| <- 10#1.5^2; ~~ 1.5 * 10^2 = 150.0
+    print(>>Exponent 10#1.5^2 (150.0): << + to<str>(|exp_fl|));
+
+    print(>>--- End Exotic Numbers Test ---<<);
+}
+
+fn start() -> int {
+    exotic_numbers();
+    ret 0;
+}

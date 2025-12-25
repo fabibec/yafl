@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-O3 -Wall -ggdb
-LDFLAGS=-Ibuild -Ilib -I../vm3/vm
+LDFLAGS=-lm -Ibuild -Ilib -I../vm3/vm
 
 all: build vm3 yafl yaflc
 
@@ -43,11 +43,11 @@ build/lexer.c: lexer.l | build/parser.c build
 build/lexer.o: build/lexer.c
 	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
 
-yafl: lib/yafl.c | build vm3
+yafl: lib/yafl.c ../vm3/vm/libvm3.a | build
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< ../vm3/vm/libvm3.a
 
-yaflc: build/lexer.o build/parser.o build/stringbuf.o build/ast.o build/optim.o build/codegen.o build/main.o build/utils.o build/symtab.o
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ ../vm3/vm/libvm3.a
+yaflc: build/lexer.o build/parser.o build/stringbuf.o build/ast.o build/optim.o build/codegen.o build/main.o build/utils.o build/symtab.o ../vm3/vm/libvm3.a
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ -lm
 
 clean:
 	rm -rf build yafl yaflc

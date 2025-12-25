@@ -34,6 +34,7 @@ typedef enum {
     NODE_UNARY,
 
     NODE_INT,
+    NODE_FLOAT,
     NODE_STR,
     NODE_BOOL,
     NODE_VAR,
@@ -134,6 +135,9 @@ typedef struct ast_node {
             uint64_t value;
         } integer;
         struct {
+            double value;
+        } float_nr;
+        struct {
             char *value;
         } string;
         struct {
@@ -171,6 +175,7 @@ ast_node *ast_new_binary(bin_op_t op, ast_node* left, ast_node* right);
 ast_node *ast_new_unary(un_op_t op, ast_node* operand);
 
 ast_node *ast_new_int(uint64_t value);
+ast_node *ast_new_float(double value);
 ast_node *ast_new_str(char* value);
 ast_node *ast_new_bool(bool value);
 ast_node *ast_new_var(char* name);

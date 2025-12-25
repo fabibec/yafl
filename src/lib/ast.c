@@ -109,6 +109,11 @@ ast_node *ast_new_int(uint64_t value) {
     node->data.integer.value = value;
     return node;
 }
+ast_node *ast_new_float(double value) {
+    ast_node *node = ast_new_node(NODE_FLOAT);
+    node->data.float_nr.value = value;
+    return node;
+}
 ast_node *ast_new_str(char *value) {
     ast_node *node = ast_new_node(NODE_STR);
     node->data.string.value = value;
@@ -164,6 +169,7 @@ static const char *node_type_str(ast_node_t type) {
         case NODE_BINARY: return "BINARY";
         case NODE_UNARY: return "UNARY";
         case NODE_INT: return "INT";
+        case NODE_FLOAT:return "FLOAT";
         case NODE_STR: return "STR";
         case NODE_BOOL: return "BOOL";
         case NODE_VAR: return "VAR";
@@ -294,6 +300,9 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
 
         case NODE_INT:
             snprintf(label, sizeof(label), "INT\\n%lu", node->data.integer.value);
+            break;
+        case NODE_FLOAT:
+            snprintf(label, sizeof(label), "FLOAT\\n%lu", node->data.float_nr.value);
             break;
         case NODE_STR:
             snprintf(label, sizeof(label), "STR\\n\\\"%s\\\"", node->data.string.value);
@@ -550,6 +559,7 @@ void ast_free(ast_node *node) {
 
         // No dynamic memory
         case NODE_INT:
+        case NODE_FLOAT:
         case NODE_BOOL:
         default:
             break;

@@ -3,6 +3,7 @@
     #include "parser.h"
     #include "stringbuf.h"
     #include "utils.h"
+    #include <math.h>
     #include <stdio.h>
     #include <stdlib.h>
     #include <stdint.h>
@@ -12,11 +13,10 @@
 /* Patterns */
 HEX_DIGIT [0-9A-Fa-f]
 
-BASE (2|8|10|12)
-BIN_NUM (0|1[0-1]*)
-OCT_NUM (0|[1-7][0-7]*)
-DEC_NUM (0|[1-9][0-9]*)
-HEX_NUM (0|[1-9A-Fa-f][0-9A-Fa-f]*)
+BASE [0-9]+
+DEC_NUM (0|[1-9][0-9_]*)
+HEX_NUM (0|[1-9A-Fa-f][0-9A-Fa-f_]*)
+EXPONENT [+-]?[0-9]+
 
 VAR_IDENT "|"[^|\t\n\r]+"|"
 IDENT [a-zA-Z_][a-zA-Z0-9_]*
@@ -51,42 +51,85 @@ IGNORE [ \t\n]+
     return L_BOOL;
 }
 
-{DEC_NUM} {
-    yylval.nr = strtol(yytext, NULL, 10);
+{BASE}"#"{HEX_NUM} {
+    /* Based int */
+    int base = parse_base(yytext);
+    int v;
+    if(!base){
+        fprintf(stderr, "Error line %d: Invalid base for integer number '%s' (base >= 2 and base <= 16)\n", yylineno, yytext);
+        exit(1);
+    }
+    char *s = (base >= 10) ? yytext + 3 : yytext + 2;
+    int ok = parse_based_int(base, s, &v);
+    if(!ok){
+        fprintf(stderr, "Error line %d: Invalid digit in integer number '%s' (every digit needs to be < %d)\n",
+            yylineno, s, base);
+        exit(1);
+    }
+    yylval.nr = v;
+    return L_INT;
+}
+
+{HEX_NUM} {
+    /* Decimal int with error handling */
+    int v;
+    int base = 10;
+    int ok = parse_based_int(base, yytext, &v);
+    if(!ok){
+        fprintf(stderr, "Error line %d: Invalid digit in integer number '%s' (every digit needs to be < %d)\n",
+            yylineno, yytext, base);
+        exit(1);
+    }
+    yylval.nr = v;
     return L_INT;
 }
 "#"{HEX_NUM} {
-    yylval.nr = strtol(yytext + 1, NULL, 16);
+    /* Hexdecimal int */
+    int v;
+    int base = 16;
+    parse_based_int(base, yytext + 1, &v);
+    /* Lexer already checks for errors */
+    yylval.nr = v;
     return L_INT;
-}
-"2#"{BIN_NUM} {
-    yylval.nr = strtol(yytext + 2, NULL, 2);
-    return L_INT;
-}
-"8#"{OCT_NUM} {
-    yylval.nr = strtol(yytext + 2, NULL, 8);
-    return L_INT;
-}
-"10#"{DEC_NUM} {
-    yylval.nr = strtol(yytext + 3, NULL, 10);
-    return L_INT;
-}
-"16#"{HEX_NUM} {
-
-    yylval.nr = strtol(yytext + 3, NULL, 16);
-    return L_INT;
-}
-{BASE}"#"{HEX_NUM} {
-    /* Catch-all for invalid numbers */
-    fprintf(stderr, "Error in line %d: Invalid number format '%s'\n", yylineno, yytext);
-    exit(1);
-}
-[0-9]+"#"[0-9A-Fa-f]+ {
-    /* Catch-all for invalid base */
-    fprintf(stderr, "Error line %d: Invalid base in number '%s' (use 2#, 8#, 10#, or 16#)\n", yylineno, yytext);
-    exit(1);
 }
 
+{BASE}"#"{HEX_NUM}("."{HEX_NUM})?("^"{EXPONENT})? {
+    /* Based float */
+    int base = parse_base(yytext);
+    if(!base){
+        fprintf(stderr, "Error in line %d: Invalid base for float number '%s' (base >= 2 and base <= 16)\n", yylineno, yytext);
+        exit(1);
+    }
+    char *s = (base >= 10) ? yytext + 3 : yytext + 2;
+    double v = parse_based_float(base, s);
+    if(isnan(v)){
+        fprintf(stderr, "Error in line %d: Invalid float literal '%s'\n", yylineno, s);
+        exit(1);
+    }
+    yylval.fl_nr = v;
+    return L_FLOAT;
+}
+{HEX_NUM}("."{HEX_NUM})?("^"{EXPONENT})? {
+    /* Decimal float with error handling */
+    double v = parse_based_float(10, yytext);
+    if(isnan(v)){
+        fprintf(stderr, "Error line %d: Invalid digit in float number '%s' (every digit needs to be < 10)\n",
+            yylineno, yytext);
+        exit(1);
+    }
+    yylval.fl_nr = v;
+    return L_FLOAT;
+}
+"#"{HEX_NUM}("."{HEX_NUM})?("^"{EXPONENT})? {
+    /* Hexdecimal float */
+    double v = parse_based_float(16, yytext + 1);
+    if(isnan(v)){
+        fprintf(stderr, "Error line %d: Invalid hex float '%s'\n", yylineno, yytext);
+        exit(1);
+    }
+    yylval.fl_nr = v;
+    return L_FLOAT;
+}
 
 ">>" {
     BEGIN(STRING_STATE);
@@ -129,6 +172,7 @@ IGNORE [ \t\n]+
 "none" { return T_NONE; }
 "int"|"sint" { return T_SINT; }
 "uint" { return T_UINT; }
+"float" { return T_FLOAT; }
 
 {VAR_IDENT} {
     yylval.str = strip_pipes(yytext);
