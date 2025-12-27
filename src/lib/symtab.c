@@ -48,7 +48,7 @@ void hashmap_free(hashmap *map) {
     free(map);
 }
 
-symbol *hashmap_put(hashmap *map, const char *name, yafl_t type) {
+symbol *hashmap_put(hashmap *map, const char *name, yafl_t *type) {
     // Check if resize needed
     if ((float)map->size / map->capacity > map->load_factor) {
         _hashmap_resize(map);
@@ -91,11 +91,15 @@ void hashmap_dump(hashmap *map, int scope_level) {
            scope_level, map->size, map->capacity,
            (float)map->size / map->capacity);
 
+    char type_buf[128];
     for (int i = 0; i < map->capacity; i++) {
         for (symbol *s = map->buckets[i]; s; s = s->next) {
-            printf("    [%d] %s: %s", i, s->name, type_to_string(s->type));
-            if (s->type == TYPE_FUNC) {
-                printf(" (pc=%d, ret=%s)", s->func.pc, type_to_string(s->func.ret_type));
+            type_to_str(s->type, type_buf, sizeof(type_buf));
+            printf("    [%d] %s: %s", i, s->name, type_buf);
+            if (s->type && s->type->base_t == TYPE_FUNC) {
+                char ret_buf[128];
+                type_to_str(s->func.ret_type, ret_buf, sizeof(ret_buf));
+                printf(" (pc=%d, ret=%s)", s->func.pc, ret_buf);
             } else {
                 printf(" (var_nr=%d)", s->var.var_nr);
             }
@@ -191,7 +195,7 @@ void symtab_exit_scope(symtab *table) {
     free(old_scope);
 }
 
-symbol *symtab_add_var(symtab *table, const char *name, yafl_t type) {
+symbol *symtab_add_var(symtab *table, const char *name, yafl_t *type) {
     // Check if already exists in current scope -> error in codegen
     if (hashmap_get(table->current->map, name)) {
         return NULL;
@@ -205,7 +209,7 @@ symbol *symtab_add_var(symtab *table, const char *name, yafl_t type) {
     return sym;
 }
 
-symbol *symtab_add_func(symtab *table, const char *name, yafl_t ret_type, int pc) {
+symbol *symtab_add_func(symtab *table, const char *name, yafl_t *ret_type, int pc) {
     // Functions are always added to global scope
     scope *global = table->current;
     while (global->parent) {
@@ -217,8 +221,13 @@ symbol *symtab_add_func(symtab *table, const char *name, yafl_t ret_type, int pc
         return NULL;  // Already declared
     }
 
-    symbol *sym = hashmap_put(global->map, name, TYPE_FUNC);
-    if (!sym) return NULL;
+    // Create a FUNC type symbol
+    yafl_t *func_type = type_new_simple(TYPE_FUNC);
+    symbol *sym = hashmap_put(global->map, name, func_type);
+    if (!sym) {
+        type_free(func_type);
+        return NULL;
+    }
 
     sym->func.pc = pc;
     sym->func.ret_type = ret_type;

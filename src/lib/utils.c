@@ -18,8 +18,10 @@ int has_start_function(ast_node *node) {
         if (node->type == NODE_FUNC &&
             strcmp(node->data.func.name, "start") == 0) {
             // Verify signature: fn start() -> int
-            if (node->data.func.return_type != TYPE_SINT) {
-                fprintf(stderr, "Error: start() must return int, not %d\n", node->data.func.return_type);
+            if (!node->data.func.return_type || node->data.func.return_type->base_t != TYPE_SINT) {
+                char buf[128];
+                type_to_str(node->data.func.return_type, buf, sizeof(buf));
+                fprintf(stderr, "Error: start() must return int, not %s\n", buf);
                 return 0;
             }
             // Validate input parameters
@@ -32,19 +34,6 @@ int has_start_function(ast_node *node) {
         node = node->next;
     }
     return 0;
-}
-
-/* Helper to convert type to string */
-const char *type_to_string(yafl_t type) {
-    switch (type) {
-        case TYPE_VOID: return "none";
-        case TYPE_BOOL: return "bool";
-        case TYPE_STR: return "str";
-        case TYPE_FUNC: return "func";
-        case TYPE_SINT: return "int";
-        case TYPE_UINT: return "uint";
-        default: return "unknown";
-    }
 }
 
 int digit_val(char c) {

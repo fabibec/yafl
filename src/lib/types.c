@@ -1,0 +1,61 @@
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include "types.h"
+
+yafl_t* type_new_simple(yafl_base_t base_t) {
+    yafl_t *t = malloc(sizeof(yafl_t));
+    t->base_t = base_t;
+    t->comp_t = NULL;
+    return t;
+}
+
+yafl_t* type_new_composite(yafl_t *element_type) {
+    yafl_t *t = malloc(sizeof(yafl_t));
+    t->base_t = TYPE_ARR;
+    t->comp_t = element_type;
+    return t;
+}
+
+void type_free(yafl_t *t) {
+    if (!t) return;
+    if (t->comp_t != NULL) {
+        type_free(t->comp_t);
+    }
+    free(t);
+}
+
+int type_equals(yafl_t *t1, yafl_t *t2) {
+    if (!t1 || !t2) return 0;
+    if (t1->base_t != t2->base_t) return 0;
+
+    if (t1->base_t == TYPE_ARR) {
+        return type_equals(t1->comp_t, t2->comp_t);
+    }
+    return 1;
+}
+
+void type_to_str(const yafl_t *t, char *buf, size_t len) {
+    if (!t || !buf || len == 0) return;
+
+    switch (t->base_t) {
+        case TYPE_VOID: snprintf(buf, len, "none"); break;
+        case TYPE_BOOL: snprintf(buf, len, "bool"); break;
+        case TYPE_STR:  snprintf(buf, len, "str"); break;
+        case TYPE_FUNC: snprintf(buf, len, "func"); break;
+        case TYPE_SINT: snprintf(buf, len, "int"); break;
+        case TYPE_UINT: snprintf(buf, len, "uint"); break;
+        case TYPE_FLOAT:snprintf(buf, len, "float"); break;
+        case TYPE_ARR: {
+            char inner[128];
+            if (t->comp_t) {
+                type_to_str(t->comp_t, inner, sizeof(inner));
+                snprintf(buf, len, "Arr<%s>", inner);
+            } else {
+                snprintf(buf, len, "Arr<?>");
+            }
+            break;
+        }
+        default: snprintf(buf, len, "unknown"); break;
+    }
+}

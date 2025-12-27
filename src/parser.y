@@ -29,7 +29,7 @@
     char *str;
     ast_node *node;
     /* Type info */
-    yafl_t type;
+    yafl_t *type;
 }
 
 /* Lexer Tokens */
@@ -43,6 +43,7 @@
 %token OP_BIN_LE OP_BIN_GE OP_BIN_NE
 %token OP_BIN_AND OP_BIN_OR
 %token T_STR T_BOOL T_NONE T_SINT T_UINT T_FLOAT
+%token T_ARR
 
 /* Non-terminals */
 %type <node> program top_level_list top_level_item
@@ -52,7 +53,7 @@
 %type <node> var_decl_stmt assignment_stmt return_stmt
 %type <node> if_stmt opt_else for_stmt while_stmt print_stmt
 %type <node> for_loop_var
-%type <node> expr primary call_expr cast_expr
+%type <node> expr primary call_expr cast_expr arr_expr
 %type <node> expr_list expr_list_opt
 %type <type> type_specifier for_loop_var_type
 
@@ -155,6 +156,9 @@ assignment_stmt:
     ID_VAR S_LARROW expr ';' {
         $$ = ast_new_assign($1, $3);
     }
+    | ID_VAR '[' expr ']' S_LARROW expr ';' {
+        $$ = ast_new_arr_assign($1, $3, $6);
+    }
     ;
 
 return_stmt:
@@ -195,8 +199,8 @@ for_stmt:
     ;
 
 for_loop_var_type:
-    T_SINT { $$ = TYPE_SINT; }
-    | T_UINT { $$ = TYPE_UINT; }
+    T_SINT { $$ = type_new_simple(TYPE_SINT); }
+    | T_UINT { $$ = type_new_simple(TYPE_UINT); }
     ;
 
 for_loop_var:
@@ -254,6 +258,16 @@ primary:
     | ID_VAR { $$ = ast_new_var($1); }
     | call_expr
     | cast_expr
+    | arr_expr
+    ;
+
+arr_expr:
+    '[' expr_list ']' {
+        $$ = ast_new_arr_lit($2);
+    }
+    | ID_VAR '[' expr ']' {
+        $$ = ast_new_arr_idx($1, $3);
+    }
     ;
 
 call_expr:
@@ -281,12 +295,15 @@ expr_list:
 
 /* --- TYPES --- */
 type_specifier:
-    T_STR { $$ = TYPE_STR; }
-    | T_BOOL { $$ = TYPE_BOOL; }
-    | T_NONE { $$ = TYPE_VOID; }
-    | T_SINT { $$ = TYPE_SINT; }
-    | T_UINT { $$ = TYPE_UINT; }
-    | T_FLOAT { $$ = TYPE_FLOAT; }
+    T_STR { $$ = type_new_simple(TYPE_STR); }
+    | T_BOOL { $$ = type_new_simple(TYPE_BOOL); }
+    | T_NONE { $$ = type_new_simple(TYPE_VOID); }
+    | T_SINT { $$ = type_new_simple(TYPE_SINT); }
+    | T_UINT { $$ = type_new_simple(TYPE_UINT); }
+    | T_FLOAT { $$ = type_new_simple(TYPE_FLOAT); }
+    | T_ARR '\'' type_specifier {
+        $$ = type_new_composite($3);
+    }
     ;
 
 %%

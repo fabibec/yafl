@@ -9,7 +9,7 @@
 // Single symbol
 typedef struct symbol {
     char *name;
-    yafl_t type;
+    yafl_t *type;
     union {
         // variable number
         struct {
@@ -20,12 +20,13 @@ typedef struct symbol {
             // program counter
             int pc;
             // Return type
-            yafl_t ret_type;
+            yafl_t *ret_type;
         } func;
     };
     // For hash collision chaining
     struct symbol *next;
 } symbol;
+
 
 /* Hashmap for one scope */
 typedef struct hashmap {
@@ -57,7 +58,7 @@ typedef struct symtab {
 hashmap *hashmap_create(int initial_capacity, float load_factor);
 void hashmap_free(hashmap *map);
 
-symbol *hashmap_put(hashmap *map, const char *name, yafl_t type);
+symbol *hashmap_put(hashmap *map, const char *name, yafl_t *type);
 symbol *hashmap_get(hashmap *map, const char *name);
 
 void hashmap_dump(hashmap *map, int scope_level);
@@ -68,8 +69,8 @@ void symtab_free(symtab *table);
 void symtab_enter_scope(symtab *table);
 void symtab_exit_scope(symtab *table);
 
-symbol *symtab_add_var(symtab *table, const char *name, yafl_t type);
-symbol *symtab_add_func(symtab *table, const char *name, yafl_t ret_type, int pc);
+symbol *symtab_add_var(symtab *table, const char *name, yafl_t *type);
+symbol *symtab_add_func(symtab *table, const char *name, yafl_t *ret_type, int pc);
 symbol *symtab_lookup(symtab *table, const char *name);
 symbol *symtab_lookup_current_scope(symtab *table, const char *name);
 

@@ -18,7 +18,7 @@ ast_node *ast_new_node(ast_node_t type) {
 }
 
 /* Node creation */
-ast_node* ast_new_func(char* name, ast_node* params, yafl_t return_type, ast_node* body) {
+ast_node* ast_new_func(char* name, ast_node* params, yafl_t *return_type, ast_node* body) {
     ast_node *node = ast_new_node(NODE_FUNC);
     node->data.func.name = name;
     node->data.func.params = params;
@@ -41,7 +41,7 @@ ast_node *ast_new_call(char *name, ast_node *args) {
 }
 
 
-ast_node *ast_new_decl(yafl_t type, char *name, ast_node *init) {
+ast_node *ast_new_decl(yafl_t *type, char *name, ast_node *init) {
     ast_node *node = ast_new_node(NODE_DECL);
     node->data.decl.type = type;
     node->data.decl.name = name;
@@ -104,6 +104,27 @@ ast_node *ast_new_unary(un_op_t op, ast_node *operand) {
     return node;
 }
 
+
+ast_node *ast_new_arr_lit(ast_node *elements) {
+    ast_node *node = ast_new_node(NODE_ARR_LIT);
+    node->data.arr_lit.elements = elements;
+    return node;
+}
+ast_node *ast_new_arr_idx(char* name, ast_node *idx) {
+    ast_node *node = ast_new_node(NODE_ARR_IDX);
+    node->data.arr_idx.name = name;
+    node->data.arr_idx.idx = idx;
+    return node;
+}
+ast_node *ast_new_arr_assign(char *name, ast_node *idx, ast_node *value) {
+    ast_node *node = ast_new_node(NODE_ARR_ASSIGN);
+    node->data.arr_assign.name = name;
+    node->data.arr_assign.idx = idx;
+    node->data.arr_assign.value = value;
+    return node;
+}
+
+
 ast_node *ast_new_int(uint64_t value) {
     ast_node *node = ast_new_node(NODE_INT);
     node->data.integer.value = value;
@@ -130,7 +151,7 @@ ast_node *ast_new_var(char *name) {
     return node;
 }
 
-ast_node *ast_new_cast(yafl_t type, ast_node *expr) {
+ast_node *ast_new_cast(yafl_t *type, ast_node *expr) {
     ast_node *node = ast_new_node(NODE_CAST);
     node->data.cast.type = type;
     node->data.cast.expr = expr;
@@ -167,6 +188,9 @@ static const char *node_type_str(ast_node_t type) {
         case NODE_WHILE: return "WHILE";
         case NODE_PRINT: return "PRINT";
         case NODE_BINARY: return "BINARY";
+        case NODE_ARR_ASSIGN: return "ARR_ASSIGN";
+        case NODE_ARR_IDX: return "ARR_INDEX";
+        case NODE_ARR_LIT: return "ARR_LITERAL";
         case NODE_UNARY: return "UNARY";
         case NODE_INT: return "INT";
         case NODE_FLOAT:return "FLOAT";
@@ -206,18 +230,6 @@ static const char *un_op_str(bin_op_t op) {
     }
 }
 
-static const char *type_str(yafl_t type) {
-    switch (type) {
-        case TYPE_VOID: return "none";
-        case TYPE_BOOL: return "bool";
-        case TYPE_STR: return "str";
-        case TYPE_FUNC: return "func";
-        case TYPE_SINT: return "int";
-        case TYPE_UINT: return "uint";
-        default: return "unknown";
-    }
-}
-
 // Monotonic counter for unique id's
 static int dot_node_id = 0;
 
@@ -229,6 +241,8 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
 
     // Node label based on type
     char label[256];
+    char type_buf[128]; // Buffer for type string conversion
+    
     switch (node->type) {
         case NODE_BLOCK:
             snprintf(label, sizeof(label), "BLOCK");
@@ -236,30 +250,33 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
 
 
         case NODE_FUNC:
-            snprintf(label, sizeof(label), "FUNC\\n%s\\n→ %s",
+            type_to_str(node->data.func.return_type, type_buf, sizeof(type_buf));
+            snprintf(label, sizeof(label), "FUNC\n%s\n→ %s",
                      node->data.func.name,
-                     type_str(node->data.func.return_type));
+                     type_buf);
             break;
         case NODE_PARAM:
-            snprintf(label, sizeof(label), "PARAM\\n%s : %s",
+            type_to_str(node->data.param.type, type_buf, sizeof(type_buf));
+            snprintf(label, sizeof(label), "PARAM\n%s : %s",
                      node->data.param.name,
-                     type_str(node->data.param.type));
+                     type_buf);
             break;
         case NODE_RETURN:
             snprintf(label, sizeof(label), "RETURN");
             break;
         case NODE_CALL:
-            snprintf(label, sizeof(label), "CALL\\n%s()", node->data.call.name);
+            snprintf(label, sizeof(label), "CALL\n%s()", node->data.call.name);
             break;
 
 
         case NODE_DECL:
-            snprintf(label, sizeof(label), "DECL\\n%s : %s",
+            type_to_str(node->data.decl.type, type_buf, sizeof(type_buf));
+            snprintf(label, sizeof(label), "DECL\n%s : %s",
                      node->data.decl.name,
-                     type_str(node->data.decl.type));
+                     type_buf);
             break;
         case NODE_ASSIGN:
-            snprintf(label, sizeof(label), "ASSIGN\\n%s", node->data.assign.name);
+            snprintf(label, sizeof(label), "ASSIGN\n%s", node->data.assign.name);
             break;
 
 
@@ -272,12 +289,13 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
             snprintf(label, sizeof(label), "FOR");
             break;
         case NODE_FOR_DECL:
-            snprintf(label, sizeof(label), "FOR_DECL\\n%s : %s",
+            type_to_str(node->data.for_decl.type, type_buf, sizeof(type_buf));
+            snprintf(label, sizeof(label), "FOR_DECL\n%s : %s",
                      node->data.for_decl.name,
-                     type_str(node->data.for_decl.type));
+                     type_buf);
             break;
         case NODE_FOR_VAR:
-            snprintf(label, sizeof(label), "FOR_VAR\\n%s",
+            snprintf(label, sizeof(label), "FOR_VAR\n%s",
                      node->data.for_var.name);
             break;
         case NODE_WHILE:
@@ -291,30 +309,43 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
 
 
         case NODE_BINARY:
-            snprintf(label, sizeof(label), "BINOP\\n%s", bin_op_str(node->data.binary.op));
+            snprintf(label, sizeof(label), "BINOP\n%s", bin_op_str(node->data.binary.op));
             break;
         case NODE_UNARY:
-            snprintf(label, sizeof(label), "UNOP\\n%s", un_op_str(node->data.unary.op));
+            snprintf(label, sizeof(label), "UNOP\n%s", un_op_str(node->data.unary.op));
             break;
+
+
+        case NODE_ARR_ASSIGN:
+            snprintf(label, sizeof(label), "ARR_ASSIGN\n%s", node->data.arr_assign.name);
+            break;
+        case NODE_ARR_IDX:
+            snprintf(label, sizeof(label), "ARR_INDEX\n%s", node->data.arr_idx.name);
+            break;
+        case NODE_ARR_LIT:
+            snprintf(label, sizeof(label), "ARR_LITERAL\n");
+            break;
+
 
 
         case NODE_INT:
-            snprintf(label, sizeof(label), "INT\\n%lu", node->data.integer.value);
+            snprintf(label, sizeof(label), "INT\n%lu", node->data.integer.value);
             break;
         case NODE_FLOAT:
-            snprintf(label, sizeof(label), "FLOAT\\n%lu", node->data.float_nr.value);
+            snprintf(label, sizeof(label), "FLOAT\n%lu", node->data.float_nr.value);
             break;
         case NODE_STR:
-            snprintf(label, sizeof(label), "STR\\n\\\"%s\\\"", node->data.string.value);
+            snprintf(label, sizeof(label), "STR\n\"%s\"", node->data.string.value);
             break;
         case NODE_BOOL:
-            snprintf(label, sizeof(label), "BOOL\\n%s", node->data.boolean.value ? "true" : "false");
+            snprintf(label, sizeof(label), "BOOL\n%s", node->data.boolean.value ? "true" : "false");
             break;
         case NODE_VAR:
-            snprintf(label, sizeof(label), "VAR\\n%s", node->data.var.name);
+            snprintf(label, sizeof(label), "VAR\n%s", node->data.var.name);
             break;
         case NODE_CAST:
-            snprintf(label, sizeof(label), "CAST\\n%s", type_str(node->data.cast.type));
+            type_to_str(node->data.cast.type, type_buf, sizeof(type_buf));
+            snprintf(label, sizeof(label), "CAST\n%s", type_buf);
             break;
         default:
             snprintf(label, sizeof(label), "%s", node_type_str(node->type));
@@ -437,6 +468,25 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
                 ast_print_dot_node(fp, node->data.unary.operand, my_id);
             }
             break;
+
+        case NODE_ARR_ASSIGN:
+            if (node->data.arr_assign.idx) {
+                ast_print_dot_node(fp, node->data.arr_assign.idx, my_id);
+            }
+            if (node->data.arr_assign.value) {
+                ast_print_dot_node(fp, node->data.arr_assign.value, my_id);
+            }
+            break;
+        case NODE_ARR_IDX:
+            if (node->data.arr_idx.idx) {
+                ast_print_dot_node(fp, node->data.arr_idx.idx, my_id);
+            }
+            break;
+        case NODE_ARR_LIT:
+            if (node->data.arr_lit.elements) {
+                ast_print_dot_node(fp, node->data.arr_lit.elements, my_id);
+            }
+
         default:
             break;
     }
@@ -483,11 +533,13 @@ void ast_free(ast_node *node) {
 
         case NODE_FUNC:
             free(node->data.func.name);
+            type_free(node->data.func.return_type);
             ast_free(node->data.func.params);
             ast_free(node->data.func.body);
             break;
         case NODE_PARAM:
             free(node->data.param.name);
+            type_free(node->data.param.type);
             break;
         case NODE_RETURN:
             ast_free(node->data.ret.value);
@@ -498,12 +550,14 @@ void ast_free(ast_node *node) {
             break;
 
         case NODE_CAST:
+            type_free(node->data.cast.type);
             ast_free(node->data.cast.expr);
             break;
 
 
         case NODE_DECL:
             free(node->data.decl.name);
+            type_free(node->data.decl.type);
             ast_free(node->data.decl.init);
             break;
         case NODE_ASSIGN:
@@ -527,6 +581,7 @@ void ast_free(ast_node *node) {
             break;
         case NODE_FOR_DECL:
             free(node->data.for_decl.name);
+            type_free(node->data.for_decl.type);
             break;
         case NODE_FOR_VAR:
             free(node->data.for_var.name);
@@ -547,6 +602,20 @@ void ast_free(ast_node *node) {
             break;
         case NODE_UNARY:
             ast_free(node->data.unary.operand);
+            break;
+
+
+        case NODE_ARR_ASSIGN:
+            free(node->data.arr_assign.name);
+            ast_free(node->data.arr_assign.idx);
+            ast_free(node->data.arr_assign.value);
+            break;
+        case NODE_ARR_IDX:
+            free(node->data.arr_idx.name);
+            ast_free(node->data.arr_idx.idx);
+            break;
+        case NODE_ARR_LIT:
+            ast_free(node->data.arr_lit.elements);
             break;
 
 

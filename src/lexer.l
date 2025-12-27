@@ -51,6 +51,52 @@ IGNORE [ \t\n]+
     return L_BOOL;
 }
 
+
+
+">>" {
+    BEGIN(STRING_STATE);
+}
+<STRING_STATE>"^x"{HEX_DIGIT}{HEX_DIGIT} {
+    long val = strtol(yytext + 2, NULL, 16);
+    chr_append((char) val);
+}
+<STRING_STATE>"^<<" { str_append("<<", 2); }
+<STRING_STATE>"^n" { chr_append('\n'); }
+<STRING_STATE>"<<" {
+    yylval.str = strdup(str_buffer ? str_buffer : "");
+    str_reset();
+    BEGIN(INITIAL);
+    return L_STR;
+}
+<STRING_STATE>(.|\n) { str_append(yytext, yyleng); }
+
+
+"fn" { return KW_FN; }
+"ret" { return KW_RET; }
+
+"if" { return KW_IF; }
+"else"  { return KW_ELSE; }
+"while" { return KW_WHILE; }
+"where" { return KW_WHERE; }
+"for" { return KW_FOR; }
+"in" { return KW_IN; }
+"range" { return KW_RANGE; }
+
+"print" { return KW_PRINT; }
+
+"to" { return KW_TO; }
+
+"->" { return S_RARROW; }
+"<-" { return S_LARROW; }
+
+"arr" { return T_ARR; }
+"str" { return T_STR; }
+"bool" { return T_BOOL; }
+"none" { return T_NONE; }
+"int"|"sint" { return T_SINT; }
+"uint" { return T_UINT; }
+"float" { return T_FLOAT; }
+
 {BASE}"#"{HEX_NUM} {
     /* Based int */
     int base = parse_base(yytext);
@@ -131,49 +177,6 @@ IGNORE [ \t\n]+
     return L_FLOAT;
 }
 
-">>" {
-    BEGIN(STRING_STATE);
-}
-<STRING_STATE>"^x"{HEX_DIGIT}{HEX_DIGIT} {
-    long val = strtol(yytext + 2, NULL, 16);
-    chr_append((char) val);
-}
-<STRING_STATE>"^<<" { str_append("<<", 2); }
-<STRING_STATE>"^n" { chr_append('\n'); }
-<STRING_STATE>"<<" {
-    yylval.str = strdup(str_buffer ? str_buffer : "");
-    str_reset();
-    BEGIN(INITIAL);
-    return L_STR;
-}
-<STRING_STATE>(.|\n) { str_append(yytext, yyleng); }
-
-
-"fn" { return KW_FN; }
-"ret" { return KW_RET; }
-
-"if" { return KW_IF; }
-"else"  { return KW_ELSE; }
-"while" { return KW_WHILE; }
-"where" { return KW_WHERE; }
-"for" { return KW_FOR; }
-"in" { return KW_IN; }
-"range" { return KW_RANGE; }
-
-"print" { return KW_PRINT; }
-
-"to" { return KW_TO; }
-
-"->" { return S_RARROW; }
-"<-" { return S_LARROW; }
-
-"str" { return T_STR; }
-"bool" { return T_BOOL; }
-"none" { return T_NONE; }
-"int"|"sint" { return T_SINT; }
-"uint" { return T_UINT; }
-"float" { return T_FLOAT; }
-
 {VAR_IDENT} {
     yylval.str = strip_pipes(yytext);
     return ID_VAR;
@@ -188,4 +191,3 @@ IGNORE [ \t\n]+
 . { return *yytext; }
 
 %%
-
