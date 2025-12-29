@@ -27,6 +27,14 @@ ast_node* ast_new_func(char* name, ast_node* params, yafl_t *return_type, ast_no
     return node;
 }
 
+ast_node* ast_new_param(char * name, yafl_t *type, ast_node *default_val) {
+    ast_node *node = ast_new_node(NODE_PARAM);
+    node->data.param.name = name;
+    node->data.param.type = type;
+    node->data.param.default_value = default_val;
+    return node;
+}
+
 ast_node *ast_new_ret(ast_node *value) {
     ast_node *node = ast_new_node(NODE_RETURN);
     node->data.ret.value = value;
@@ -551,6 +559,7 @@ void ast_free(ast_node *node) {
         case NODE_PARAM:
             free(node->data.param.name);
             type_free(node->data.param.type);
+            ast_free(node->data.param.default_value);
             break;
         case NODE_RETURN:
             ast_free(node->data.ret.value);

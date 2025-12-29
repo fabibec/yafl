@@ -1,0 +1,41 @@
+fn foo(int: |a|) -> int {
+    print(>>Specific<<);
+    ret 1;
+}
+
+fn foo(any: |a|) -> int {
+    print(>>Generic<<);
+    ret 0;
+}
+
+fn bar(arr'int: |a|) -> int {
+    print(>>Specific Array<<);
+    ret 1;
+}
+
+fn bar(arr'any: |a|) -> int {
+    print(>>Generic Array<<);
+    ret 0;
+}
+
+fn start() -> int {
+    int |i| <- 10;
+    str |s| <- >>hello<<;
+    
+    print(>>Calling foo(int):<<);
+    foo(|i|);
+    
+    print(>>Calling foo(str):<<);
+    foo(|s|);
+
+    arr'int |arr_i|;
+    arr'str |arr_s|;
+
+    print(>>Calling bar(Arr<int>):<<);
+    bar(|arr_i|);
+
+    print(>>Calling bar(Arr<str>):<<);
+    bar(|arr_s|);
+
+    ret 0;
+}

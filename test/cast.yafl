@@ -2,57 +2,57 @@ fn cast() -> none {
     print(>>--- Casting Test ---<<);
     
     ~~ Bool -> Int
-    int |i| <- to<int>(Yes);
-    print(>>Bool Yes to int (1): << + to<str>(|i|));
+    int |i| <- to_int(Yes);
+    print(>>Bool Yes to int (1): << + to_str(|i|));
 
-    int |j| <- to<int>(No);
-    print(>>Bool No to int (0): << + to<str>(|j|));
+    int |j| <- to_int(No);
+    print(>>Bool No to int (0): << + to_str(|j|));
 
     ~~ Bool -> Str
-    print(>>Bool Yes to str (Yes): << + to<str>(Yes));
-    print(>>Bool No to str (No): << + to<str>(No));
+    print(>>Bool Yes to str (Yes): << + to_str(Yes));
+    print(>>Bool No to str (No): << + to_str(No));
 
     ~~ Bool -> Float
-    float |bf1| <- to<float>(Yes);
-    print(>>Bool Yes to float (1.0): << + to<str>(|bf1|));
-    float |bf2| <- to<float>(No);
-    print(>>Bool No to float (0.0): << + to<str>(|bf2|));
+    float |bf1| <- to_float(Yes);
+    print(>>Bool Yes to float (1.0): << + to_str(|bf1|));
+    float |bf2| <- to_float(No);
+    print(>>Bool No to float (0.0): << + to_str(|bf2|));
 
     ~~ Int -> Bool
-    bool |k| <- to<bool>(10);
-    print(>>Int 10 to bool (Yes): << + to<str>(|k|));
-    bool |l| <- to<bool>(0);
-    print(>>Int 0 to bool (No): << + to<str>(|l|));
+    bool |k| <- to_bool(10);
+    print(>>Int 10 to bool (Yes): << + to_str(|k|));
+    bool |l| <- to_bool(0);
+    print(>>Int 0 to bool (No): << + to_str(|l|));
 
     ~~ Int -> Float
-    float |if1| <- to<float>(123);
-    print(>>Int 123 to float (123.0): << + to<str>(|if1|));
+    float |if1| <- to_float(123);
+    print(>>Int 123 to float (123.0): << + to_str(|if1|));
 
     ~~ Float -> Bool
-    bool |fb1| <- to<bool>(0.0);
-    print(>>Float 0.0 to bool (No): << + to<str>(|fb1|));
-    bool |fb2| <- to<bool>(3.14);
-    print(>>Float 3.14 to bool (Yes): << + to<str>(|fb2|));
+    bool |fb1| <- to_bool(0.0);
+    print(>>Float 0.0 to bool (No): << + to_str(|fb1|));
+    bool |fb2| <- to_bool(3.14);
+    print(>>Float 3.14 to bool (Yes): << + to_str(|fb2|));
 
     ~~ Float -> Int
-    int |fl_to_int| <- to<int>(3.99);
-    print(>>Float 3.99 to int (3): << + to<str>(|fl_to_int|));
+    int |fl_to_int| <- to_int(3.99);
+    print(>>Float 3.99 to int (3): << + to_str(|fl_to_int|));
 
     ~~ Str -> Bool
-    bool |sb1| <- to<bool>(>>Yes<<);
-    print(>>Str 'Yes' to bool (Yes): << + to<str>(|sb1|));
-    bool |sb2| <- to<bool>(>>No<<);
-    print(>>Str 'No' to bool (No): << + to<str>(|sb2|));
-    bool |sb3| <- to<bool>(>>Whatever<<);
-    print(>>Str 'Whatever' to bool (No): << + to<str>(|sb3|));
+    bool |sb1| <- to_bool(>>Yes<<);
+    print(>>Str 'Yes' to bool (Yes): << + to_str(|sb1|));
+    bool |sb2| <- to_bool(>>No<<);
+    print(>>Str 'No' to bool (No): << + to_str(|sb2|));
+    bool |sb3| <- to_bool(>>Whatever<<);
+    print(>>Str 'Whatever' to bool (No): << + to_str(|sb3|));
 
     ~~ Str -> Int
-    int |si1| <- to<int>(>>123<<);
-    print(>>Str '123' to int (0): << + to<str>(|si1|));
+    int |si1| <- to_int(>>123<<);
+    print(>>Str '123' to int (0): << + to_str(|si1|));
 
     ~~ Str -> Float
-    float |sf1| <- to<float>(>>3.14<<);
-    print(>>Str '3.14' to float (0.0): << + to<str>(|sf1|));
+    float |sf1| <- to_float(>>3.14<<);
+    print(>>Str '3.14' to float (0.0): << + to_str(|sf1|));
 
     print(>>--- End Casting Test ---<<);
 }

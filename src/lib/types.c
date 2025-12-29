@@ -24,6 +24,7 @@ void type_free(yafl_t *t) {
     }
     free(t);
 }
+
 void type_list_free(yafl_t **t_list, int len) {
     for (int i = 0; i < len; i++) {
         type_free(t_list[i]);
@@ -33,10 +34,23 @@ void type_list_free(yafl_t **t_list, int len) {
 
 int type_equals(yafl_t *t1, yafl_t *t2) {
     if (!t1 || !t2) return 0;
+
+    // Generic matches anything
+    if (t1->base_t == TYPE_GENERIC || t2->base_t == TYPE_GENERIC) return 1;
+
     if (t1->base_t != t2->base_t) return 0;
 
     if (t1->base_t == TYPE_ARR) {
         return type_equals(t1->comp_t, t2->comp_t);
+    }
+    return 1;
+}
+
+int type_is_identical(yafl_t *t1, yafl_t *t2) {
+    if (!t1 || !t2) return 0;
+    if (t1->base_t != t2->base_t) return 0;
+    if (t1->base_t == TYPE_ARR) {
+        return type_is_identical(t1->comp_t, t2->comp_t);
     }
     return 1;
 }
@@ -60,6 +74,7 @@ void type_to_str(const yafl_t *t, char *buf, size_t len) {
         case TYPE_SINT: snprintf(buf, len, "int"); break;
         case TYPE_UINT: snprintf(buf, len, "uint"); break;
         case TYPE_FLOAT:snprintf(buf, len, "float"); break;
+        case TYPE_GENERIC:snprintf(buf, len, "any"); break;
         case TYPE_ARR: {
             char inner[128];
             if (t->comp_t) {

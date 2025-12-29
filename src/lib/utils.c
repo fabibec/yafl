@@ -35,7 +35,7 @@ int parse_based_int(int base, const char *s, int* out) {
     int value = 0;
 
     for (; *s; s++){
-        if (*s == '_') { s++; continue; }
+        if (*s == '_') { continue; }
 
         int d = digit_val(*s);
         if (d < 0 || d >= base) return 0;

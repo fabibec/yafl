@@ -5,6 +5,9 @@
   case CALL_PC:
     op_CALL_PC(exec);
     break;
+  case SLEEPMS:
+    op_SLEEPMS(exec);
+    break;
   case ADD:
     op_add(exec);
     break;

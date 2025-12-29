@@ -3,6 +3,7 @@ char *opcodestr[] = {
   "INVALID",
  "MYMUL",
  "CALL_PC",
+ "SLEEPMS",
  "ADD",
  "TYPEOF",
  "SUB",

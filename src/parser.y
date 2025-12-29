@@ -37,12 +37,12 @@
 %token <fl_nr> L_FLOAT
 %token <str> L_STR ID ID_VAR
 %token KW_FN KW_RET KW_IF KW_ELIF KW_ELSE KW_WHILE KW_FOR KW_IN
-%token KW_RANGE KW_PRINT KW_WHERE KW_TO
+%token KW_RANGE KW_WHERE
 %token S_RARROW S_LARROW
 %token OP_UN_DEC OP_UN_INC
 %token OP_BIN_LE OP_BIN_GE OP_BIN_NE
 %token OP_BIN_AND OP_BIN_OR
-%token T_STR T_BOOL T_NONE T_SINT T_UINT T_FLOAT
+%token T_STR T_BOOL T_NONE T_SINT T_UINT T_FLOAT T_ANY
 %token T_ARR
 
 /* Non-terminals */
@@ -51,9 +51,9 @@
 %type <node> param_list param_list_nonempty param
 %type <node> compound_stmt statement_list statement
 %type <node> var_decl_stmt assignment_stmt return_stmt
-%type <node> if_stmt opt_else for_stmt while_stmt print_stmt
+%type <node> if_stmt opt_else for_stmt while_stmt
 %type <node> for_loop_var
-%type <node> expr primary call_expr cast_expr arr_expr
+%type <node> expr primary call_expr arr_expr
 %type <node> expr_list expr_list_opt
 %type <type> type_specifier for_loop_var_type
 
@@ -111,9 +111,10 @@ param_list_nonempty:
 
 param:
     type_specifier ':' ID_VAR {
-        $$ = ast_new_node(NODE_PARAM);
-        $$->data.param.type = $1;
-        $$->data.param.name = $3;
+        $$ = ast_new_param($3, $1, NULL);
+    }
+    | type_specifier ':' ID_VAR S_LARROW expr {
+        $$ = ast_new_param($3, $1, $5);
     }
     ;
 
@@ -137,7 +138,6 @@ statement:
     | if_stmt
     | for_stmt
     | while_stmt
-    | print_stmt
     | expr ';'
     ;
 
@@ -224,12 +224,6 @@ while_stmt:
     }
     ;
 
-print_stmt:
-    KW_PRINT '(' expr ')' ';' {
-        $$ = ast_new_print($3);
-    }
-    ;
-
 /* --- expressions --- */
 expr:
     expr '+' expr { $$ = ast_new_binary(OP_ADD, $1, $3); }
@@ -260,7 +254,6 @@ primary:
     | L_BOOL { $$ = ast_new_bool($1); }
     | ID_VAR { $$ = ast_new_var($1); }
     | call_expr
-    | cast_expr
     | arr_expr
     ;
 
@@ -276,12 +269,6 @@ arr_expr:
 call_expr:
     ID '(' expr_list_opt ')' {
         $$ = ast_new_call($1, $3);
-    }
-    ;
-
-cast_expr:
-    KW_TO '<' type_specifier '>' '(' expr ')' {
-        $$ = ast_new_cast($3, $6);
     }
     ;
 
@@ -304,6 +291,7 @@ type_specifier:
     | T_SINT { $$ = type_new_simple(TYPE_SINT); }
     | T_UINT { $$ = type_new_simple(TYPE_UINT); }
     | T_FLOAT { $$ = type_new_simple(TYPE_FLOAT); }
+    | T_ANY { $$ = type_new_simple(TYPE_GENERIC); }
     | T_ARR '\'' type_specifier {
         $$ = type_new_composite($3);
     }

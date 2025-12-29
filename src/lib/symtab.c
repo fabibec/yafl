@@ -1,5 +1,7 @@
 #include "symtab.h"
 #include "utils.h"
+#include "builtins.h"
+#include "ast.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -26,9 +28,36 @@ static void func_sym_free(void *ptr) {
             }
             free(sym->param_types);
         }
+        if (sym->default_values) {
+            // we own the default value AST nodes (created in builtins.c)
+            if (sym->is_builtin) {
+                for (int i = 0; i < sym->num_params; i++) {
+                    ast_free(sym->default_values[i]);
+                }
+            }
+            // owned by the AST root
+            free(sym->default_values);
+        }
+
+        // Free fixups
+        fixup_node *f = sym->fixups;
+        while (f) {
+            fixup_node *next_f = f->next;
+            free(f);
+            f = next_f;
+        }
+
         free(sym);
         sym = next;
     }
+}
+
+void symtab_add_fixup(func_sym *sym, int pc_location) {
+    if (!sym) return;
+    fixup_node *node = malloc(sizeof(fixup_node));
+    node->pc_location = pc_location;
+    node->next = sym->fixups;
+    sym->fixups = node;
 }
 
 symtab *symtab_create(void) {
@@ -44,6 +73,9 @@ symtab *symtab_create(void) {
     table->current->var_offset = 0;
 
     table->funcs = hashmap_create(32, 0.75f, func_sym_free);
+
+    builtins_register(table);
+
     return table;
 }
 
@@ -121,7 +153,7 @@ var_sym *symtab_lookup_var(symtab *table, const char *name) {
 }
 
 func_sym *symtab_add_func(symtab *table, const char *name, yafl_t *ret_type,
-                           int num_params, yafl_t **param_types, int pc) {
+                           int num_params, yafl_t **param_types, struct ast_node **default_values, int pc) {
     func_sym *existing = hashmap_get(table->funcs, name);
 
     // Check if this exact signature already exists
@@ -129,7 +161,7 @@ func_sym *symtab_add_func(symtab *table, const char *name, yafl_t *ret_type,
         if (overload->num_params == num_params) {
             int same = 1;
             for (int i = 0; i < num_params; i++) {
-                if (!type_equals(overload->param_types[i], param_types[i])) {
+                if (!type_is_identical(overload->param_types[i], param_types[i])) {
                     same = 0;
                     break;
                 }
@@ -147,6 +179,7 @@ func_sym *symtab_add_func(symtab *table, const char *name, yafl_t *ret_type,
     sym->is_builtin = 0;
     sym->impl.pc = pc;
     sym->next_overload = NULL;
+    sym->fixups = NULL;
 
     // Insert param types
     if (param_types && num_params > 0) {
@@ -156,6 +189,17 @@ func_sym *symtab_add_func(symtab *table, const char *name, yafl_t *ret_type,
         }
     } else {
         sym->param_types = NULL;
+    }
+
+    // Insert default values
+    if (default_values && num_params > 0) {
+        sym->default_values = malloc(num_params * sizeof(ast_node*));
+        for (int i = 0; i < num_params; i++) {
+            // Store pointer, do not clone AST node
+            sym->default_values[i] = default_values[i];
+        }
+    } else {
+        sym->default_values = NULL;
     }
 
     if (!existing) {
@@ -177,7 +221,7 @@ func_sym *symtab_add_func(symtab *table, const char *name, yafl_t *ret_type,
 }
 
 func_sym *symtab_add_builtin(symtab *table, const char *name, yafl_t* ret_type,
-                               int num_params, yafl_t **param_types, void (*codegen_fn)(prog_t *p)) {
+                               int num_params, yafl_t **param_types, struct ast_node **default_values, void (*codegen_fn)(prog_t *p, int arg_count)) {
     func_sym *existing = hashmap_get(table->funcs, name);
 
    // Check if this exact signature already exists
@@ -185,7 +229,7 @@ func_sym *symtab_add_builtin(symtab *table, const char *name, yafl_t* ret_type,
         if (overload->num_params == num_params) {
             int same = 1;
             for (int i = 0; i < num_params; i++) {
-                if (!type_equals(overload->param_types[i], param_types[i])) {
+                if (!type_is_identical(overload->param_types[i], param_types[i])) {
                     same = 0;
                     break;
                 }
@@ -203,6 +247,7 @@ func_sym *symtab_add_builtin(symtab *table, const char *name, yafl_t* ret_type,
     sym->is_builtin = 1;
     sym->impl.codegen_fn = codegen_fn;
     sym->next_overload = NULL;
+    sym->fixups = NULL;
 
     // Insert param types
     if (param_types && num_params > 0) {
@@ -212,6 +257,17 @@ func_sym *symtab_add_builtin(symtab *table, const char *name, yafl_t* ret_type,
         }
     } else {
         sym->param_types = NULL;
+    }
+
+    // Insert default values
+    if (default_values && num_params > 0) {
+        sym->default_values = malloc(num_params * sizeof(ast_node*));
+        for (int i = 0; i < num_params; i++) {
+            // Store pointer
+            sym->default_values[i] = default_values[i];
+        }
+    } else {
+        sym->default_values = NULL;
     }
 
     if (!existing) {
@@ -232,6 +288,25 @@ func_sym *symtab_add_builtin(symtab *table, const char *name, yafl_t* ret_type,
     return sym;
 }
 
+static int type_score(yafl_t *target, yafl_t *actual) {
+    if (!target || !actual) return 0;
+
+    // Generic match is weak
+    if (target->base_t == TYPE_GENERIC) return 1;
+
+    // Recursive check for composite types
+    if (target->base_t == TYPE_ARR) {
+        if (actual->base_t != TYPE_ARR) return 0;
+        int inner = type_score(target->comp_t, actual->comp_t);
+        return inner > 0 ? inner + 1 : 0; // Add 1 for the array layer itself matching
+    }
+
+    // Exact base match
+    if (target->base_t == actual->base_t) return 2;
+
+    return 0;
+}
+
 func_sym *symtab_lookup_func(symtab *table, const char *name,
                                         yafl_t **arg_types, int num_args) {
     func_sym *func = hashmap_get(table->funcs, name);
@@ -240,25 +315,48 @@ func_sym *symtab_lookup_func(symtab *table, const char *name,
         return NULL;
     }
 
-    // Find matching overload
+    func_sym *best_match = NULL;
+    int max_score = -1;
+
+    // Find best matching overload
     for (func_sym *overload = func; overload; overload = overload->next_overload) {
-        if (overload->num_params != num_args) {
+        // If args are less than required, default values for the rest
+        if (num_args > overload->num_params) {
             continue;
         }
 
+        // Check if missing args have defaults
+        if (num_args < overload->num_params) {
+            if (!overload->default_values) continue;
+            int missing_ok = 1;
+            for (int i = num_args; i < overload->num_params; i++) {
+                if (!overload->default_values[i]) {
+                    missing_ok = 0;
+                    break;
+                }
+            }
+            if (!missing_ok) continue;
+        }
+
+        int current_score = 0;
         int matches = 1;
         for (int i = 0; i < num_args; i++) {
-            if (!type_equals(overload->param_types[i], arg_types[i])) {
+            int score = type_score(overload->param_types[i], arg_types[i]);
+            if (score == 0) {
                 matches = 0;
                 break;
             }
+            current_score += score;
         }
 
         if (matches) {
-            return overload;
+            if (current_score > max_score) {
+                max_score = current_score;
+                best_match = overload;
+            }
         }
     }
-    return NULL;
+    return best_match;
 }
 
 void symtab_dump(symtab *table) {
@@ -266,15 +364,57 @@ void symtab_dump(symtab *table) {
     printf("Total scopes created: %d\n", table->total_scopes);
     printf("Current scope depth: %d\n", table->current->level);
     printf("Current scope var counter: %d\n", table->current->var_count);
-    printf("\n");
 
-    // Print from current scope to global
-    int scope_count = 0;
-    for (scope *scope = table->current; scope; scope = scope->parent) {
-        // hashmap_dump(scope->vars, scope->level);
-        scope_count++;
+    printf("\n[Functions]\n");
+    char type_buf[128];
+    hashmap *map = table->funcs;
+    for (int i = 0; i < map->capacity; i++) {
+        hashmap_entry *entry = map->buckets[i];
+        while (entry) {
+            func_sym *sym = (func_sym*)entry->value;
+            // Traverse overloads
+            while (sym) {
+                type_to_str(sym->ret_type, type_buf, sizeof(type_buf));
+                printf("  %s (%s): params=%d ", sym->name, type_buf, sym->num_params);
+
+                if (sym->num_params > 0 && sym->param_types) {
+                    printf("(");
+                    for (int j = 0; j < sym->num_params; j++) {
+                        type_to_str(sym->param_types[j], type_buf, sizeof(type_buf));
+                        printf("%s%s", type_buf, (j < sym->num_params - 1) ? ", " : "");
+                    }
+                    printf(") ");
+                }
+
+                if (sym->is_builtin) {
+                    printf("[BUILTIN]");
+                } else {
+                    printf("[USER PC=%d]", sym->impl.pc);
+                    if (sym->fixups) {
+                        printf(" [FIXUPS PENDING]");
+                    }
+                }
+                printf("\n");
+                sym = sym->next_overload;
+            }
+            entry = entry->next;
+        }
     }
 
-    printf("\nTotal active scopes: %d\n", scope_count);
+    printf("\n[Variables (Current Scope Chain)]\n");
+    for (scope *s = table->current; s; s = s->parent) {
+        printf("  Scope Level %d:\n", s->level);
+        hashmap *vmap = s->vars;
+        for (int i = 0; i < vmap->capacity; i++) {
+            hashmap_entry *entry = vmap->buckets[i];
+            while (entry) {
+                var_sym *vs = (var_sym*)entry->value;
+                type_to_str(vs->type, type_buf, sizeof(type_buf));
+                printf("    %s: %s (offset=%d)\n", vs->name, type_buf, vs->nr);
+                entry = entry->next;
+            }
+        }
+    }
+
     printf("-------------------------\n");
 }

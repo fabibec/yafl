@@ -1,6 +1,7 @@
 typedef struct exec exec_t;
 void op_mymul(exec_t *);
 void op_CALL_PC(exec_t *);
+void op_SLEEPMS(exec_t *);
 void op_add(exec_t *);
 void op_typeof(exec_t *);
 void op_sub(exec_t *);
@@ -55,6 +56,7 @@ enum opcodes {
   INVALID,
   MYMUL,
   CALL_PC,
+  SLEEPMS,
   ADD,
   TYPEOF,
   SUB,

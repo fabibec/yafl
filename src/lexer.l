@@ -8,6 +8,7 @@
     #include <stdlib.h>
     #include <stdint.h>
     #include <inttypes.h>
+    #include <limits.h>
 %}
 
 /* Patterns */
@@ -41,6 +42,16 @@ IGNORE [ \t\n]+
 "or" { return OP_BIN_OR; }
 "++" { return OP_UN_INC; }
 "--" { return OP_UN_DEC; }
+
+"MaxInt" {
+    yylval.nr = INT_MAX;
+    return L_INT;
+}
+
+"MinInt" {
+    yylval.nr = INT_MIN;
+    return L_INT;
+}
 
 "Yes" {
     yylval.nr = 1;
@@ -83,10 +94,6 @@ IGNORE [ \t\n]+
 "in" { return KW_IN; }
 "range" { return KW_RANGE; }
 
-"print" { return KW_PRINT; }
-
-"to" { return KW_TO; }
-
 "->" { return S_RARROW; }
 "<-" { return S_LARROW; }
 
@@ -97,6 +104,7 @@ IGNORE [ \t\n]+
 "int"|"sint" { return T_SINT; }
 "uint" { return T_UINT; }
 "float" { return T_FLOAT; }
+"any" { return T_ANY; }
 
 {BASE}"#"{HEX_NUM} {
     /* Based int */

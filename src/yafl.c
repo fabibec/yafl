@@ -31,6 +31,8 @@ int main(int argc, char **argv) {
         exec_set_debuglvl(e, debug);
     }
 
+    //exec_set_debuglvl(e, E_DEBUG3);
+
     // Run
     exec_run(e);
 

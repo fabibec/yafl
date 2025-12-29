@@ -8,7 +8,7 @@ build:
 	mkdir -p build
 
 vm3:
-	make -C ../vm3/vm
+	make -C ../vm3/vm vm libvm3.a
 
 build/stringbuf.o: lib/stringbuf.c
 	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
@@ -34,6 +34,9 @@ build/symtab.o: lib/symtab.c
 build/codegen.o: lib/codegen.c
 	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
 
+build/builtins.o: lib/builtins.c
+	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
+
 build/yaflc.o: yaflc.c
 	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
 
@@ -52,7 +55,7 @@ build/lexer.o: build/lexer.c
 yafl: yafl.c ../vm3/vm/libvm3.a | build
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< ../vm3/vm/libvm3.a
 
-yaflc: build/lexer.o build/parser.o build/stringbuf.o build/ast.o build/optim.o build/codegen.o build/yaflc.o build/utils.o build/symtab.o build/hashmap.o build/types.o ../vm3/vm/libvm3.a
+yaflc: build/lexer.o build/parser.o build/stringbuf.o build/ast.o build/optim.o build/codegen.o build/builtins.o build/yaflc.o build/utils.o build/symtab.o build/hashmap.o build/types.o ../vm3/vm/libvm3.a
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ -lm
 
 clean:

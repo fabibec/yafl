@@ -12,6 +12,7 @@ typedef enum {
     TYPE_UINT,
     TYPE_FLOAT,
     TYPE_ARR,
+    TYPE_GENERIC,
 } yafl_base_t;
 
 // nested types for elements
@@ -31,6 +32,7 @@ void type_list_free(yafl_t **t_list, int len);
 
 /* Utilities */
 int type_equals(yafl_t *t1, yafl_t *t2);
+int type_is_identical(yafl_t *t1, yafl_t *t2);
 void type_to_str(const yafl_t *t, char *buf, size_t len);
 yafl_t* type_clone(yafl_t *t);
 

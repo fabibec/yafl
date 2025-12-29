@@ -71,6 +71,7 @@ typedef struct ast_node {
         struct {
             yafl_t *type;
             char *name;
+            struct ast_node *default_value;
         } param;
         struct {
             struct ast_node *value;
@@ -176,6 +177,7 @@ typedef struct ast_node {
 ast_node* ast_new_node(ast_node_t kind);
 
 ast_node* ast_new_func(char* name, ast_node* params, yafl_t *return_type, ast_node* body);
+ast_node* ast_new_param(char * name, yafl_t *type, ast_node *default_val);
 ast_node* ast_new_ret(ast_node* value);
 ast_node* ast_new_call(char* name, ast_node* args);
 
@@ -207,7 +209,6 @@ ast_node *ast_new_cast(yafl_t *type, ast_node *expr);
 
 /* Helper to link lists */
 ast_node *ast_append(ast_node* list, ast_node* new_node);
-
 /* List operations */
 ast_node *ast_append(ast_node *list, ast_node *node);
 

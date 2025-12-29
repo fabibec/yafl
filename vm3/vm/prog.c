@@ -243,55 +243,55 @@ OPCODE(equal) {
   MINARGS(2);
   val_t *v1 = POP;
   val_t *v2 = POP;
-  
+
   int eq = val_cmp(v1, v2) == 0;
   PUSH(v_num_new_int(eq));
-} 
+}
 
 OPCODE(notequal) {
   MINARGS(2);
   val_t *v1 = POP;
   val_t *v2 = POP;
-  
+
   int neq = val_cmp(v1, v2) != 0;
   PUSH(v_num_new_int(neq));
-} 
+}
 
 OPCODE(less) {
   MINARGS(2);
   val_t *v1 = POP;
   val_t *v2 = POP;
-  
+
   int less = val_cmp(v1, v2) < 0;
   PUSH(v_num_new_int(less));
-} 
+}
 
 OPCODE(lessequal) {
   MINARGS(2);
   val_t *v1 = POP;
   val_t *v2 = POP;
-  
+
   int lesseq = val_cmp(v1, v2) <= 0;
   PUSH(v_num_new_int(lesseq));
-} 
+}
 
 OPCODE(greater) {
   MINARGS(2);
   val_t *v1 = POP;
   val_t *v2 = POP;
-  
+
   int greater = val_cmp(v1, v2) > 0;
   PUSH(v_num_new_int(greater));
-} 
+}
 
 OPCODE(greaterequal) {
   MINARGS(2);
   val_t *v1 = POP;
   val_t *v2 = POP;
-  
+
   int greaterequal = val_cmp(v1, v2) >= 0;
   PUSH(v_num_new_int(greaterequal));
-} 
+}
 
 OPCODE(and) {
   MINARGS(2);
@@ -300,7 +300,7 @@ OPCODE(and) {
 
   int val = val_to_bool(v1) && val_to_bool(v2);
   PUSH(v_num_new_int(val));
-} 
+}
 
 OPCODE(or) {
   MINARGS(2);
@@ -309,7 +309,7 @@ OPCODE(or) {
 
   int val = val_to_bool(v1) || val_to_bool(v2);
   PUSH(v_num_new_int(val));
-} 
+}
 
 OPCODE(not) {
   MINARGS(1);
@@ -639,7 +639,6 @@ OPCODE(noop) {
 
 NATIVE(getint) {
   char buf[100];
-  printf("< ");
   char *s = fgets(buf, sizeof(buf), stdin);
   val_t *v = s ? v_num_new_int(atoi(s)) : &val_undef;
   return v;
@@ -656,7 +655,6 @@ NATIVE(random) {
 
 NATIVE(getstring) {
   char buf[1024];
-  printf("<< ");
   char *s = fgets(buf, sizeof(buf), stdin);
   if (s) {
     buf[strlen(buf)-1] = 0;
@@ -747,7 +745,7 @@ int exec_step (exec_t *exec) {
   }
 
   int op = prog_get_op(exec->prog, exec->pc);
-  
+
   if (!OP(op)) {
     vmerror(E_DEBUG, exec, "%3d: PUSH %d", exec->pc, op);
     vstack_push(exec->vstack, v_num_new_int(op));

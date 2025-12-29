@@ -1,5 +1,7 @@
 #include "prog.h"
-
+#include <stdlib.h>
+#include <time.h>
+#include <errno.h>
 // Add individual opcodes or native functions here
 
 NATIVE(myadd) {
@@ -42,4 +44,23 @@ OPCODE(CALL_PC) {
 
     vmerror(E_DEBUG, exec, "Calling function at PC %d with %d args", func_pc, nr);
     exec->pc = func_pc - 1; // adjust for automatic increment
+}
+
+/* Custom opcode to sleep amount of ms */
+OPCODE(SLEEPMS) {
+    val_t *v1 = POP;
+    assert(v1->type == T_NUM);
+    assert(v1->u.num >= 0);
+
+    long ms = v1->u.num;
+    if (ms > 10000) ms = 10000;
+
+    struct timespec req, rem;
+    req.tv_sec  = ms / 1000;
+    req.tv_nsec = (ms % 1000) * 1000000L;
+
+    /* Resume sleep if interrupted */
+    while (nanosleep(&req, &rem) == -1) {
+        req = rem;
+    }
 }

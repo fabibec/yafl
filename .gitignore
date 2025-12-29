@@ -1,12 +1,14 @@
 # Ignore build executable
-src/build/*
 src/yaflc
 src/yafl
 
 # Compilation artifacts
-*.ast
-*.dot
-*.yaflb
+src/build/*
+**/*.dot
+**/*.svg
+**/*.yaflb
+**/*.o
+**/*.a
 
 # Ignore Latex Junk
 doc/build/*

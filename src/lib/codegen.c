@@ -32,6 +32,16 @@ static yafl_t **extract_params(ast_node *params, int *count) {
     return types;
 }
 
+static ast_node **extract_defaults(ast_node *params, int count) {
+    if (count == 0) return NULL;
+    ast_node **defaults = malloc(count * sizeof(ast_node*));
+    int i = 0;
+    for (ast_node *p = params; p; p = p->next) {
+        defaults[i++] = p->data.param.default_value;
+    }
+    return defaults;
+}
+
 /* --- Type Checking --- */
 yafl_t* get_expr_type(symtab *table, ast_node *node) {
     if (!node) return NULL;
@@ -101,9 +111,6 @@ yafl_t* get_expr_type(symtab *table, ast_node *node) {
             }
             return get_expr_type(table, node->data.unary.operand);
         }
-
-        case NODE_CAST:
-            return type_clone(node->data.cast.type);
 
         case NODE_ARR_IDX: {
             var_sym *sym = symtab_lookup_var(table, node->data.arr_idx.name);
@@ -199,7 +206,6 @@ static void codegen_zero_init(yafl_t *type, int line) {
     }
 }
 
-
 static var_sym *codegen_register_var(char *name, yafl_t *type, int line){
     var_sym *sym = symtab_add_var(prog_symtab, name, type);
     if (!sym) {
@@ -222,7 +228,7 @@ void codegen_list_reverse(ast_node *elem, int *count) {
 
     codegen_list_reverse(elem->next, count);
     codegen_expr(elem);
-    (*count)++;
+    if(count) (*count)++;
 }
 
 
@@ -237,22 +243,7 @@ static void codegen_set_get_var(char *name, int line, enum opcodes op_type){
     }
 }
 
-static int yafl_t_to_vm_type(yafl_t *type, int line) {
-    if (!type) return -1;
-    switch (type->base_t) {
-        case TYPE_SINT:
-        case TYPE_UINT:
-        case TYPE_BOOL: return T_NUM;
-        case TYPE_STR:  return T_STR;
-        case TYPE_FLOAT: return T_REAL;
-        default: {
-            char buf[128];
-            type_to_str(type, buf, sizeof(buf));
-            codegen_error(line, "Unsupported type for cast: %s", buf);
-            return -1;
-        }
-    }
-}
+
 
 static void codegen_expr(ast_node *node) {
     if (!node) return;
@@ -381,125 +372,38 @@ static void codegen_expr(ast_node *node) {
             }
             type_list_free(arg_types, arg_count);
 
-            // Push arguments
-            ast_node *arg = node->data.call.args;
-            while (arg) {
-                codegen_expr(arg);
-                arg = arg->next;
+            // Generate default values for missing arguments (pushed first -> bottom of stack)
+            if (arg_count < sym->num_params) {
+                if (!sym->default_values) {
+                     codegen_error(node->line, "Missing arguments for function '%s'", node->data.call.name);
+                }
+                for (int i = sym->num_params - 1; i >= arg_count; i--) {
+                    if (!sym->default_values[i]) {
+                        codegen_error(node->line, "Missing argument %d for function '%s' (no default value)",
+                            i+1, node->data.call.name);
+                    }
+                    codegen_expr(sym->default_values[i]);
+                }
             }
 
-            prog_add_num(prog, arg_count);
+            // Push explicit arguments to stack in reverse order
+            codegen_list_reverse(node->data.call.args, NULL);
 
             if (sym->is_builtin) {
                 // Execute the builtin codegen
-                sym->impl.codegen_fn(prog);
+                // Pass total param count including defaults
+                sym->impl.codegen_fn(prog, sym->num_params);
             } else {
-                prog_add_num(prog, sym->impl.pc);
+                prog_add_num(prog, sym->num_params);
+                int pc_loc = prog_add_num(prog, sym->impl.pc);
+
+                if (sym->impl.pc == -1) {
+                    // Backpatching required
+                    symtab_add_fixup(sym, pc_loc);
+                }
+
                 prog_add_op(prog, CALL_PC);
             }
-            break;
-        }
-
-        case NODE_CAST: {
-            yafl_t *src_type = get_expr_type(prog_symtab, node->data.cast.expr);
-            yafl_t *dest_type = node->data.cast.type;
-
-            // Self cast
-            if (type_equals(src_type, dest_type)) {
-                type_free(src_type);
-                codegen_expr(node->data.cast.expr);
-                break;
-            }
-
-            codegen_expr(node->data.cast.expr);
-
-            if (!src_type || !dest_type) {
-                type_free(src_type);
-                break;
-            }
-
-            if (dest_type->base_t == TYPE_BOOL) {
-                if (src_type->base_t == TYPE_SINT || src_type->base_t == TYPE_UINT) {
-                    // int -> bool: != 0
-                    prog_add_num(prog, 0);
-                    prog_add_op(prog, NOTEQUAL);
-                } else if (src_type->base_t == TYPE_FLOAT) {
-                    // float -> bool: != 0.0
-                    val_t *fl = v_real_new_double(0.0);
-                    int const_id = prog_new_constant(prog, fl);
-                    prog_add_num(prog, const_id);
-                    prog_add_op(prog, CONSTANT);
-                    prog_add_op(prog, NOTEQUAL);
-                } else if (src_type->base_t == TYPE_STR) {
-                    // str -> bool: >>Yes<< = Yes, >>No<< & else = No
-                    val_t *str_yes = v_str_new_cstr("Yes");
-                    int const_yes = prog_new_constant(prog, str_yes);
-                    prog_add_num(prog, const_yes);
-                    prog_add_op(prog, CONSTANT);
-                    prog_add_op(prog, EQUAL);
-                } else {
-                    prog_add_num(prog, yafl_t_to_vm_type(dest_type, node->line));
-                    prog_add_op(prog, CAST);
-                }
-            } else if (dest_type->base_t == TYPE_STR) {
-                if (src_type->base_t == TYPE_BOOL) {
-                    // bool -> str: Yes -> >>Yes<<, No -> >>No<< (if else bytecode)
-                    int label_false = prog_add_num(prog, -1);
-                    prog_add_op(prog, JUMPF);
-
-                    val_t *str_yes = v_str_new_cstr("Yes");
-                    int const_yes = prog_new_constant(prog, str_yes);
-                    prog_add_num(prog, const_yes);
-                    prog_add_op(prog, CONSTANT);
-
-                    int jump_end = prog_add_num(prog, -1);
-                    prog_add_op(prog, JUMP);
-
-                    int false_target = prog_next_pc(prog);
-                    prog_set_num(prog, label_false, false_target);
-
-                    val_t *str_no = v_str_new_cstr("No");
-                    int const_no = prog_new_constant(prog, str_no);
-                    prog_add_num(prog, const_no);
-                    prog_add_op(prog, CONSTANT);
-
-                    // End target
-                    int end_target = prog_next_pc(prog);
-                    prog_set_num(prog, jump_end, end_target);
-                } else {
-                    // int/float -> str: standard CAST
-                    prog_add_num(prog, yafl_t_to_vm_type(dest_type, node->line));
-                    prog_add_op(prog, CAST);
-                }
-            } else if (dest_type->base_t == TYPE_SINT || dest_type->base_t == TYPE_UINT) {
-                if (src_type->base_t == TYPE_STR) {
-                    // str -> int: 0
-                    prog_add_op(prog, DISCARD);
-                    prog_add_num(prog, 0);
-                } else {
-                    // float -> int: standard CAST
-                    prog_add_num(prog, yafl_t_to_vm_type(dest_type, node->line));
-                    prog_add_op(prog, CAST);
-                }
-            } else if (dest_type->base_t == TYPE_FLOAT) {
-                if (src_type->base_t == TYPE_STR) {
-                    // str -> float: 0.0
-                    prog_add_op(prog, DISCARD);
-                    val_t *fl = v_real_new_double(0.0);
-                    int const_id = prog_new_constant(prog, fl);
-                    prog_add_num(prog, const_id);
-                    prog_add_op(prog, CONSTANT);
-                } else {
-                    // int -> float: standard CAST
-                    prog_add_num(prog, yafl_t_to_vm_type(dest_type, node->line));
-                    prog_add_op(prog, CAST);
-                }
-            } else {
-                // Generic fallback
-                prog_add_num(prog, yafl_t_to_vm_type(node->data.cast.type, node->line));
-                prog_add_op(prog, CAST);
-            }
-            type_free(src_type);
             break;
         }
 
@@ -540,20 +444,6 @@ static void codegen_stmt(ast_node *node) {
             }
             prog_add_op(prog, RET);
             break;
-
-        case NODE_PRINT: {
-            codegen_expr(node->data.print.arg);
-            prog_add_num(prog, 1);
-
-            val_t *func_name = v_str_new_cstr("println");
-            int const_id = prog_new_constant(prog, func_name);
-            prog_add_num(prog, const_id);
-            prog_add_op(prog, CONSTANT);
-
-            prog_add_op(prog, CALL);
-            prog_add_op(prog, DISCARD);
-            break;
-        }
 
         case NODE_BLOCK:
             symtab_enter_scope(prog_symtab);
@@ -700,6 +590,7 @@ void codegen(ast_node *root, char *filename) {
         if (node->type == NODE_FUNC) {
             int num_params = 0;
             yafl_t **param_types = extract_params(node->data.func.params, &num_params);
+            ast_node **defaults = extract_defaults(node->data.func.params, num_params);
 
             func_sym *sym = symtab_add_func(
                 prog_symtab,
@@ -707,9 +598,11 @@ void codegen(ast_node *root, char *filename) {
                 node->data.func.return_type,
                 num_params,
                 param_types,
+                defaults,
                 -1   // pc unknown for now
             );
             type_list_free(param_types, num_params);
+            free(defaults);
 
             if (!sym) {
                 codegen_error(0, "Function '%s' already declared or duplicate signature",
@@ -767,12 +660,24 @@ void codegen(ast_node *root, char *filename) {
         int func_pc = prog_next_pc(prog);
         func->impl.pc = func_pc;
         prog_register_function(prog, node->data.func.name, func_pc);
-        printf("Generating function %s at pc=%d\n",
-            node->data.func.name, func_pc);
+        printf("Generating function %s at pc=%d (sym addr: %p)\n",
+            node->data.func.name, func_pc, (void*)func);
+
+        // Apply fixups
+        fixup_node *fixup = func->fixups;
+        while (fixup) {
+            printf("  Backpatching call to %s at %d\n", node->data.func.name, fixup->pc_location);
+            prog_set_num(prog, fixup->pc_location, func_pc);
+
+            fixup_node *next = fixup->next;
+            free(fixup);
+            fixup = next;
+        }
+        func->fixups = NULL;
 
         // Enter function scope
         symtab_enter_scope(prog_symtab);
-        // The CALL/CALL_PC opcodes creates a stack frame so variables should start from zero again
+        // The CALL/CALL_PC opcodes create a stack frame so variables should start from zero again
         prog_symtab->current->var_offset = 0;
 
         // Parameters become locals 0..n-1
@@ -797,6 +702,7 @@ void codegen(ast_node *root, char *filename) {
     if (!start) {
          codegen_error(0, "Entry point 'start()' not found");
     }
+    printf("Start function found at pc=%d (sym addr: %p)\n", start->impl.pc, (void*)start);
     prog_set_num(prog, start_pc, start->impl.pc);
 
     // dump symbol table
