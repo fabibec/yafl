@@ -36,7 +36,7 @@
 %token <nr> L_INT L_BOOL
 %token <fl_nr> L_FLOAT
 %token <str> L_STR ID ID_VAR
-%token KW_FN KW_RET KW_IF KW_ELIF KW_ELSE KW_WHILE KW_FOR KW_IN
+%token KW_FN KW_RET KW_IF KW_ELIF KW_ELSE KW_WHILE KW_FOR KW_IN KW_NEXT KW_STOP
 %token KW_WHERE
 %token S_RARROW S_LARROW
 %token OP_UN_DEC OP_UN_INC
@@ -51,7 +51,7 @@
 %type <node> param_list param_list_nonempty param
 %type <node> compound_stmt statement_list statement
 %type <node> var_decl_stmt assignment_stmt return_stmt
-%type <node> if_stmt opt_else for_stmt while_stmt
+%type <node> if_stmt opt_else for_stmt while_stmt next_stmt stop_stmt
 %type <node> for_loop_var
 %type <node> expr primary call_expr arr_expr
 %type <node> expr_list expr_list_opt
@@ -132,12 +132,15 @@ statement_list:
     ;
 
 statement:
-    var_decl_stmt
+    compound_stmt
+    | var_decl_stmt
     | assignment_stmt
     | return_stmt
     | if_stmt
     | for_stmt
     | while_stmt
+| next_stmt
+| stop_stmt
     | expr ';'
     ;
 
@@ -214,10 +217,19 @@ for_loop_var:
     ;
 
 while_stmt:
-    KW_WHILE '(' expr ')' compound_stmt {
-        $$ = ast_new_while($3, $5);
-    }
-    ;
+KW_WHILE '(' expr ')' compound_stmt {
+    $$ = ast_new_while($3, $5);
+}
+
+next_stmt:
+KW_NEXT ';' {
+    $$ = ast_new_next();
+}
+
+stop_stmt:
+KW_STOP ';' {
+    $$ = ast_new_stop();
+}    ;
 
 /* --- expressions --- */
 expr:

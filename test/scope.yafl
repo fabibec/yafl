@@ -1,0 +1,29 @@
+fn start() -> int {
+    int |a| <- 100;
+    println(|a|);
+
+    {
+        int |a| <- 200;
+        println(|a|);
+        {
+            int |a| <- 300;
+            println(|a|);
+        }
+        println(|a|);
+    }
+
+    println(|a|);
+
+    for int |a| in range(2) {
+        {
+            int |a| <- 400;
+            println(|a|);
+        }
+        println(|a|);
+
+    }
+
+    println(|a|);
+
+    ret 0;
+}

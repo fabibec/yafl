@@ -1,4 +1,5 @@
 #include "codegen.h"
+#include "loop_stack.h"
 #include "symtab.h"
 #include "prog.h"
 #include "utils.h"
@@ -563,6 +564,9 @@ static void codegen_stmt(ast_node *node) {
 
         case NODE_WHILE: {
             int cond_pc = prog_next_pc(prog);
+
+            loop_push(cond_pc, false);
+
             codegen_expr(node->data.while_loop.condition);
 
             int exit_jmp = prog_add_num(prog, -1);
@@ -575,6 +579,8 @@ static void codegen_stmt(ast_node *node) {
 
             int ext_jmp_trgt = prog_next_pc(prog);
             prog_set_num(prog, exit_jmp, ext_jmp_trgt);
+
+            loop_pop(ext_jmp_trgt);
             break;
         }
 
@@ -596,6 +602,7 @@ static void codegen_stmt(ast_node *node) {
             }
 
             int loop_start_pc = prog_next_pc(prog);
+            loop_push(loop_start_pc, true);
 
             // ITER_NEXT -> (iterator, val, 1) OR (0)
             prog_add_op(prog, ITER_NEXT);
@@ -612,6 +619,8 @@ static void codegen_stmt(ast_node *node) {
             // Patch exit
             int exit_jmp_trgt = prog_next_pc(prog);
             prog_set_num(prog, exit_jmp, exit_jmp_trgt);
+
+            loop_pop(exit_jmp_trgt);
 
             symtab_exit_scope(prog_symtab);
             break;
@@ -642,6 +651,31 @@ static void codegen_stmt(ast_node *node) {
             codegen_expr(node->data.arr_assign.idx);
             codegen_expr(node->data.arr_assign.base);
             prog_add_op(prog, INDEXAS);
+            break;
+        }
+
+        case NODE_NEXT: {
+            if (!loop_stack) {
+                codegen_error(node->line, "next (continue) statement outside of loop");
+            }
+            prog_add_num(prog, loop_stack->continue_pc);
+            prog_add_op(prog, JUMP);
+            break;
+        }
+
+        case NODE_STOP: {
+            if (!loop_stack) {
+                codegen_error(node->line, "stop (break) statement outside of loop");
+            }
+
+            // For loops have an iterator on the stack that needs to be popped
+            if (loop_stack->has_iterator) {
+                prog_add_op(prog, DISCARD);
+            }
+
+            int jmp_loc = prog_add_num(prog, -1);
+            prog_add_op(prog, JUMP);
+            loop_add_break_jump(jmp_loc);
             break;
         }
 

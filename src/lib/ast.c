@@ -88,6 +88,14 @@ ast_node *ast_new_while(ast_node *cond, ast_node *body) {
     return node;
 }
 
+ast_node *ast_new_next(void) {
+    return ast_new_node(NODE_NEXT);
+}
+
+ast_node *ast_new_stop(void) {
+    return ast_new_node(NODE_STOP);
+}
+
 
 ast_node *ast_new_print(ast_node *arg) {
     ast_node *node = ast_new_node(NODE_PRINT);
@@ -204,6 +212,8 @@ static const char *node_type_str(ast_node_t type) {
         case NODE_FOR_DECL: return "FOR_DECL";
         case NODE_FOR_VAR: return "FOR_VAR";
         case NODE_WHILE: return "WHILE";
+        case NODE_NEXT: return "NEXT";
+        case NODE_STOP: return "STOP";
         case NODE_PRINT: return "PRINT";
         case NODE_BINARY: return "BINARY";
         case NODE_ARR_ASSIGN: return "ARR_ASSIGN";
@@ -320,6 +330,12 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
             break;
         case NODE_WHILE:
             snprintf(label, sizeof(label), "WHILE");
+            break;
+        case NODE_NEXT:
+            snprintf(label, sizeof(label), "NEXT");
+            break;
+        case NODE_STOP:
+            snprintf(label, sizeof(label), "STOP");
             break;
 
 
@@ -677,6 +693,8 @@ void ast_free(ast_node *node) {
             break;
 
         // No dynamic memory
+        case NODE_NEXT:
+        case NODE_STOP:
         case NODE_INT:
         case NODE_FLOAT:
         case NODE_BOOL:

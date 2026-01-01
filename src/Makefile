@@ -13,6 +13,9 @@ vm3:
 build/stringbuf.o: lib/stringbuf.c
 	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
 
+build/loop_stack.o: lib/loop_stack.c
+	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
+
 build/ast.o: lib/ast.c
 	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
 
@@ -55,7 +58,7 @@ build/lexer.o: build/lexer.c
 yafl: yafl.c ../vm3/vm/libvm3.a | build
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< ../vm3/vm/libvm3.a
 
-yaflc: build/lexer.o build/parser.o build/stringbuf.o build/ast.o build/optim.o build/codegen.o build/builtins.o build/yaflc.o build/utils.o build/symtab.o build/hashmap.o build/types.o ../vm3/vm/libvm3.a
+yaflc: build/lexer.o build/parser.o build/stringbuf.o build/ast.o build/optim.o build/codegen.o build/builtins.o build/yaflc.o build/utils.o build/symtab.o build/hashmap.o build/types.o build/loop_stack.o ../vm3/vm/libvm3.a
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ -lm
 
 clean:

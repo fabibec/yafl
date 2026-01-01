@@ -1,0 +1,31 @@
+fn start() -> int {
+    println(>>Test while loop with next/stop:<<);
+    int |i| <- 0;
+    while (|i| < 10) {
+        |i|++;
+        if (|i| = 2) {
+            println(>>Skipping 2<<);
+            next;
+        }
+        if (|i| > 5) {
+            println(>>Stopping at 6<<);
+            stop;
+        }
+        println(|i|);
+    }
+    
+    println(>>Test for loop with next/stop:<<);
+    for int |x| in range(0, 10) {
+        if (|x| = 2) {
+             println(>>Skipping 2<<);
+             next;
+        }
+        if (|x| > 5) {
+             println(>>Stopping at 6<<);
+             stop;
+        }
+        println(|x|);
+    }
+    
+    ret 0;
+}

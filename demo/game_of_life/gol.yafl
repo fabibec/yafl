@@ -1,0 +1,99 @@
+int |WIDTH| <- 40;
+int |HEIGHT| <- 20;
+str |ALIVE| <- >>#<<;
+str |DEAD| <- >>.<<;
+
+fn clear_screen() -> none {
+    print(>>^x1B[H^x1B[J<<);
+}
+
+~~ Check amount of alive surrounding neighbors
+fn count_neighbors(arr'arr'str: |grid|, int: |y|, int: |x|) -> int {
+    int |count|;
+
+    for int |dy| in range(-1, 2) {
+        for int |dx| in range(-1, 2) {
+            if (|dy| = 0 and |dx| = 0){ next; }
+
+            int |ny| <- |y| + |dy|;
+            int |nx| <- |x| + |dx|;
+
+            ~~ Bounds check
+            if (|ny| >= 0 and |ny| < |HEIGHT| and |nx| >= 0 and |nx| < |WIDTH|) {
+                if (|grid|[|ny|][|nx|] = |ALIVE|) {
+                    |count|++;
+                }
+            }
+
+        }
+    }
+
+    ret |count|;
+}
+
+fn update(arr'arr'str: |grid|) -> none {
+    arr'arr'str |next|[|HEIGHT|];
+    for int |i| in range(0, |HEIGHT|) {
+        |next|[|i|] <- [|DEAD|] * |WIDTH|;
+    }
+
+    for int |y| in range(0, |HEIGHT|) {
+        for int |x| in range(0, |WIDTH|) {
+            int |neighbors| <- count_neighbors(|grid|, |y|, |x|);
+
+            if (|grid|[|y|][|x|] = |ALIVE| and (|neighbors| = 2 or |neighbors| = 3)) {
+                |next|[|y|][|x|] <- |ALIVE|;
+            } elif (|neighbors| = 3) {
+                |next|[|y|][|x|] <- |ALIVE|;
+            }
+        }
+    }
+
+    ~~ Copy next state to grid;
+    for int |y| in range(0, |HEIGHT|) {
+        for int |x| in range(0, |WIDTH|) {
+            |grid|[|y|][|x|] <- |next|[|y|][|x|];
+        }
+    }
+}
+
+fn print_grid(arr'arr'str: |grid|) -> none {
+    for int |y| in range(0, |HEIGHT|) {
+        for int |x| in range(0, |WIDTH|) {
+            print(|grid|[|y|][|x|]);
+        }
+        println(>><<);
+    }
+}
+
+fn init_random(arr'arr'str: |grid|) -> none {
+    for int |y| in range(0, |HEIGHT|) {
+        for int |x| in range(0, |WIDTH|) {
+            if(rng(4) = 0){
+                |grid|[|y|][|x|] <- |ALIVE|;
+            }
+        }
+    }
+}
+
+fn start() -> int {
+    ~~ Init dead 2D-array
+    arr'arr'str |grid|[|HEIGHT|];
+    for int |i| in range(0, |HEIGHT|) {
+        |grid|[|i|] <- [|DEAD|] * |WIDTH|;
+    }
+
+    clear_screen();
+    println(>>Conway's Game of Life in Yafl by Fabian Becker<<);
+    init_random(|grid|);
+
+    sleep(2_000);
+
+    while(Yes){
+        clear_screen();
+        print_grid(|grid|);
+        update(|grid|);
+        sleep(150);
+    }
+    ret 0;
+}

@@ -27,6 +27,8 @@ typedef enum {
     NODE_FOR_DECL,
     NODE_FOR_VAR,
     NODE_WHILE,
+    NODE_NEXT,
+    NODE_STOP,
 
     NODE_PRINT,
 
@@ -195,6 +197,8 @@ ast_node *ast_new_if(ast_node* condition, ast_node* then_block, ast_node* else_b
 
 ast_node *ast_new_for(ast_node* var, ast_node* iterable, ast_node* body);
 ast_node *ast_new_while(ast_node* cond, ast_node* body);
+ast_node *ast_new_next(void);
+ast_node *ast_new_stop(void);
 
 ast_node *ast_new_print(ast_node* arg);
 

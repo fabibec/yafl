@@ -1,0 +1,9 @@
+fn draw_card() -> int {
+    int |card| <- rng(1,12);
+    if (|card| > 10) {
+        ret 10; ~~ J,Q,K
+    }
+    ret |card|;
+}
+
+~~ TODO

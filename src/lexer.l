@@ -91,6 +91,8 @@ IGNORE [ \t\n]+
 "while" { return KW_WHILE; }
 "where" { return KW_WHERE; }
 "for" { return KW_FOR; }
+"next" { return KW_NEXT; }
+"stop" { return KW_STOP; }
 "in" { return KW_IN; }
 
 "->" { return S_RARROW; }
@@ -124,7 +126,7 @@ IGNORE [ \t\n]+
     return L_INT;
 }
 
-{HEX_NUM} {
+{DEC_NUM} {
     /* Decimal int with error handling */
     int v;
     int base = 10;
