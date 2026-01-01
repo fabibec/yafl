@@ -1,9 +1,9 @@
 fn start() -> int {
-    println(randint());
-    int |a| <- input_int(>>Input a number<<);
+    println(rng(5,10));
+    int |a| <- input_int(>>Input a number: <<);
     println(>>The number is: << + to_str(|a|));
     sleep(1_000);
-    str |b| <- input_str(>>Input a string<<);
+    str |b| <- input_str(>>Input a string: <<);
     println(>>Got string: << + |b|);
     ret 0;
 }

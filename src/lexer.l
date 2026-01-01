@@ -92,7 +92,6 @@ IGNORE [ \t\n]+
 "where" { return KW_WHERE; }
 "for" { return KW_FOR; }
 "in" { return KW_IN; }
-"range" { return KW_RANGE; }
 
 "->" { return S_RARROW; }
 "<-" { return S_LARROW; }
@@ -104,7 +103,7 @@ IGNORE [ \t\n]+
 "int"|"sint" { return T_SINT; }
 "uint" { return T_UINT; }
 "float" { return T_FLOAT; }
-"any" { return T_ANY; }
+"range\'int" { return T_RANGE; }
 
 {BASE}"#"{HEX_NUM} {
     /* Based int */

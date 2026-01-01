@@ -1,0 +1,27 @@
+fn start() -> int {
+    ~~ 1. Range(end)
+    print(>>for i in range(5):<<);
+    for int |i| in range(5) {
+        print(|i|);
+    }
+
+    ~~ 2. Range(start, end)
+    print(>>for i in range(2, 5):<<);
+    for int |i| in range(2, 5) {
+        print(|i|);
+    }
+
+    ~~ 3. Range(start, end, step)
+    print(>>for i in range(0, 10, 2):<<);
+    for int |i| in range(0, 10, 2) {
+        print(|i|);
+    }
+
+    ~~ 4. Iterate over array literal
+    print(>>for x in [10, 20, 30]:<<);
+    for int |x| in [10, 20, 30] {
+        print(|x|);
+    }
+    
+    ret 0;
+}

@@ -221,7 +221,7 @@ func_sym *symtab_add_func(symtab *table, const char *name, yafl_t *ret_type,
 }
 
 func_sym *symtab_add_builtin(symtab *table, const char *name, yafl_t* ret_type,
-                               int num_params, yafl_t **param_types, struct ast_node **default_values, void (*codegen_fn)(prog_t *p, int arg_count)) {
+                               int num_params, yafl_t **param_types, struct ast_node **default_values, void (*codegen_fn)(prog_t *p, ast_node *node, func_sym *sym, int arg_count)) {
     func_sym *existing = hashmap_get(table->funcs, name);
 
    // Check if this exact signature already exists

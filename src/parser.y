@@ -37,12 +37,12 @@
 %token <fl_nr> L_FLOAT
 %token <str> L_STR ID ID_VAR
 %token KW_FN KW_RET KW_IF KW_ELIF KW_ELSE KW_WHILE KW_FOR KW_IN
-%token KW_RANGE KW_WHERE
+%token KW_WHERE
 %token S_RARROW S_LARROW
 %token OP_UN_DEC OP_UN_INC
 %token OP_BIN_LE OP_BIN_GE OP_BIN_NE
 %token OP_BIN_AND OP_BIN_OR
-%token T_STR T_BOOL T_NONE T_SINT T_UINT T_FLOAT T_ANY
+%token T_STR T_BOOL T_NONE T_SINT T_UINT T_FLOAT T_RANGE
 %token T_ARR
 
 /* Non-terminals */
@@ -55,7 +55,7 @@
 %type <node> for_loop_var
 %type <node> expr primary call_expr arr_expr
 %type <node> expr_list expr_list_opt
-%type <type> type_specifier for_loop_var_type
+%type <type> type_specifier type_basic type_complex
 
 /* Precedence */
 %left OP_BIN_OR
@@ -150,13 +150,25 @@ var_decl_stmt:
         /* automatic zero-inits */
         $$ = ast_new_decl($1, $2, NULL);
     }
+    | type_specifier ID_VAR '[' expr ']' ';' {
+        if ($1->base_t != TYPE_ARR) {
+            yyerror("Array size declaration only valid for array types");
+            $$ = NULL;
+        } else {
+            // arr'int a[5] -> a = [default(int)] * 5
+            yafl_t *inner = type_clone($1->comp_t);
+            ast_node *def_val = ast_new_default(inner);
+            ast_node *fill_expr = ast_new_arr_fill(def_val, $4);
+            $$ = ast_new_decl($1, $2, fill_expr);
+        }
+    }
     ;
 
 assignment_stmt:
     ID_VAR S_LARROW expr ';' {
         $$ = ast_new_assign($1, $3);
     }
-    | ID_VAR '[' expr ']' S_LARROW expr ';' {
+    | primary '[' expr ']' S_LARROW expr ';' {
         $$ = ast_new_arr_assign($1, $3, $6);
     }
     ;
@@ -184,30 +196,13 @@ opt_else:
 
 /* --- FOR loops --- */
 for_stmt:
-    /* range(end) - start=0, step=1 */
-    KW_FOR for_loop_var KW_IN KW_RANGE '(' expr ')' compound_stmt {
-        ast_node *start = ast_new_int(0);
-        ast_node *step = ast_new_int(1);
-        $$ = ast_new_for($2, start, $6, step, $8);
+    KW_FOR for_loop_var KW_IN expr compound_stmt {
+        $$ = ast_new_for($2, $4, $5);
     }
-    /* range(start, end) - step=1 */
-    | KW_FOR for_loop_var KW_IN KW_RANGE '(' expr ',' expr ')' compound_stmt {
-        ast_node *step = ast_new_int(1);
-        $$ = ast_new_for($2, $6, $8, step, $10);
-    }
-    /* range(start, end, step) - fully specified */
-    | KW_FOR for_loop_var KW_IN KW_RANGE '(' expr ',' expr ',' expr ')' compound_stmt {
-        $$ = ast_new_for($2, $6, $8, $10, $12);
-    }
-    ;
-
-for_loop_var_type:
-    T_SINT { $$ = type_new_simple(TYPE_SINT); }
-    | T_UINT { $$ = type_new_simple(TYPE_UINT); }
     ;
 
 for_loop_var:
-    for_loop_var_type ID_VAR {
+    type_basic ID_VAR {
         $$ = ast_new_node(NODE_FOR_DECL);
         $$->data.for_decl.type = $1;
         $$->data.for_decl.name = $2;
@@ -228,7 +223,15 @@ while_stmt:
 expr:
     expr '+' expr { $$ = ast_new_binary(OP_ADD, $1, $3); }
     | expr '-' expr { $$ = ast_new_binary(OP_SUB, $1, $3); }
-    | expr '*' expr { $$ = ast_new_binary(OP_MUL, $1, $3); }
+    | expr '*' expr {
+        if ($1->type == NODE_ARR_LIT) {
+            $$ = ast_new_arr_fill($1->data.arr_lit.elements, $3);
+            $1->data.arr_lit.elements = NULL;
+            ast_free($1);
+        } else {
+            $$ = ast_new_binary(OP_MUL, $1, $3);
+        }
+    }
     | expr '/' expr { $$ = ast_new_binary(OP_DIV, $1, $3); }
     | expr '%' expr { $$ = ast_new_binary(OP_MOD, $1, $3); }
     | expr '<' expr { $$ = ast_new_binary(OP_LT, $1, $3); }
@@ -261,7 +264,7 @@ arr_expr:
     '[' expr_list ']' {
         $$ = ast_new_arr_lit($2);
     }
-    | ID_VAR '[' expr ']' {
+    | primary '[' expr ']' {
         $$ = ast_new_arr_idx($1, $3);
     }
     ;
@@ -285,16 +288,23 @@ expr_list:
 
 /* --- TYPES --- */
 type_specifier:
+    type_basic
+    | type_complex
+    ;
+
+type_basic:
     T_STR { $$ = type_new_simple(TYPE_STR); }
     | T_BOOL { $$ = type_new_simple(TYPE_BOOL); }
-    | T_NONE { $$ = type_new_simple(TYPE_VOID); }
     | T_SINT { $$ = type_new_simple(TYPE_SINT); }
     | T_UINT { $$ = type_new_simple(TYPE_UINT); }
     | T_FLOAT { $$ = type_new_simple(TYPE_FLOAT); }
-    | T_ANY { $$ = type_new_simple(TYPE_GENERIC); }
+    ;
+
+type_complex:
+    T_NONE { $$ = type_new_simple(TYPE_VOID); }
     | T_ARR '\'' type_specifier {
         $$ = type_new_composite($3);
     }
+    | T_RANGE { $$ = type_new_simple(TYPE_RANGE); }
     ;
-
 %%

@@ -12,6 +12,7 @@ typedef enum {
     TYPE_UINT,
     TYPE_FLOAT,
     TYPE_ARR,
+    TYPE_RANGE,
     TYPE_GENERIC,
 } yafl_base_t;
 

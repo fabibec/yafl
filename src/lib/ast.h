@@ -34,6 +34,7 @@ typedef enum {
     NODE_UNARY,
 
     NODE_ARR_LIT,
+    NODE_ARR_FILL,
     NODE_ARR_ASSIGN,
     NODE_ARR_IDX,
 
@@ -42,7 +43,8 @@ typedef enum {
     NODE_STR,
     NODE_BOOL,
     NODE_VAR,
-    NODE_CAST
+    NODE_CAST,
+    NODE_DEFAULT
 } ast_node_t;
 
 typedef struct ast_node {
@@ -101,10 +103,8 @@ typedef struct ast_node {
         struct {
             // loop variable
             struct ast_node *var;
-            // range
-            struct ast_node *start;
-            struct ast_node *end;
-            struct ast_node *step;
+            // iterable expression (range(...), array, string)
+            struct ast_node *iterable;
 
             struct ast_node *body;
         } for_loop;
@@ -140,11 +140,15 @@ typedef struct ast_node {
             struct ast_node * elements;
         } arr_lit;
         struct {
-            char* name;
+            struct ast_node *elements;
+            struct ast_node *count;
+        } arr_fill;
+        struct {
+            struct ast_node *base;
             struct ast_node *idx;
         } arr_idx;
         struct {
-            char *name;
+            struct ast_node *base;
             struct ast_node *idx;
             struct ast_node * value;
         } arr_assign;
@@ -169,6 +173,9 @@ typedef struct ast_node {
             yafl_t *type;
             struct ast_node *expr;
         } cast;
+        struct {
+            yafl_t *type;
+        } default_val;
     } data;
 
 } ast_node;
@@ -186,7 +193,7 @@ ast_node *ast_new_assign(char* name, ast_node* value);
 
 ast_node *ast_new_if(ast_node* condition, ast_node* then_block, ast_node* else_block);
 
-ast_node *ast_new_for(ast_node* var, ast_node* start, ast_node* end, ast_node* step, ast_node* body);
+ast_node *ast_new_for(ast_node* var, ast_node* iterable, ast_node* body);
 ast_node *ast_new_while(ast_node* cond, ast_node* body);
 
 ast_node *ast_new_print(ast_node* arg);
@@ -196,8 +203,9 @@ ast_node *ast_new_unary(un_op_t op, ast_node* operand);
 
 
 ast_node *ast_new_arr_lit(ast_node *elements);
-ast_node *ast_new_arr_idx(char* name, ast_node *idx);
-ast_node *ast_new_arr_assign(char *name, ast_node *idx, ast_node *value);
+ast_node *ast_new_arr_fill(ast_node *elements, ast_node *count);
+ast_node *ast_new_arr_idx(ast_node *base, ast_node *idx);
+ast_node *ast_new_arr_assign(ast_node *base, ast_node *idx, ast_node *value);
 
 
 ast_node *ast_new_int(uint64_t value);
@@ -206,6 +214,7 @@ ast_node *ast_new_str(char* value);
 ast_node *ast_new_bool(bool value);
 ast_node *ast_new_var(char* name);
 ast_node *ast_new_cast(yafl_t *type, ast_node *expr);
+ast_node *ast_new_default(yafl_t *type);
 
 /* Helper to link lists */
 ast_node *ast_append(ast_node* list, ast_node* new_node);

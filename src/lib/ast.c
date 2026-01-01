@@ -74,12 +74,10 @@ ast_node *ast_new_if(ast_node *cond, ast_node *then_b, ast_node *else_b) {
 }
 
 
-ast_node *ast_new_for(ast_node* var, ast_node* start, ast_node* end, ast_node* step, ast_node* body) {
+ast_node *ast_new_for(ast_node* var, ast_node* iterable, ast_node* body) {
     ast_node *node = ast_new_node(NODE_FOR);
     node->data.for_loop.var = var;
-    node->data.for_loop.start = start;
-    node->data.for_loop.end = end;
-    node->data.for_loop.step = step;
+    node->data.for_loop.iterable = iterable;
     node->data.for_loop.body = body;
     return node;
 }
@@ -118,15 +116,21 @@ ast_node *ast_new_arr_lit(ast_node *elements) {
     node->data.arr_lit.elements = elements;
     return node;
 }
-ast_node *ast_new_arr_idx(char* name, ast_node *idx) {
+ast_node *ast_new_arr_fill(ast_node *elements, ast_node *count) {
+    ast_node *node = ast_new_node(NODE_ARR_FILL);
+    node->data.arr_fill.elements = elements;
+    node->data.arr_fill.count = count;
+    return node;
+}
+ast_node *ast_new_arr_idx(ast_node *base, ast_node *idx) {
     ast_node *node = ast_new_node(NODE_ARR_IDX);
-    node->data.arr_idx.name = name;
+    node->data.arr_idx.base = base;
     node->data.arr_idx.idx = idx;
     return node;
 }
-ast_node *ast_new_arr_assign(char *name, ast_node *idx, ast_node *value) {
+ast_node *ast_new_arr_assign(ast_node *base, ast_node *idx, ast_node *value) {
     ast_node *node = ast_new_node(NODE_ARR_ASSIGN);
-    node->data.arr_assign.name = name;
+    node->data.arr_assign.base = base;
     node->data.arr_assign.idx = idx;
     node->data.arr_assign.value = value;
     return node;
@@ -163,6 +167,12 @@ ast_node *ast_new_cast(yafl_t *type, ast_node *expr) {
     ast_node *node = ast_new_node(NODE_CAST);
     node->data.cast.type = type;
     node->data.cast.expr = expr;
+    return node;
+}
+
+ast_node *ast_new_default(yafl_t *type) {
+    ast_node *node = ast_new_node(NODE_DEFAULT);
+    node->data.default_val.type = type;
     return node;
 }
 
@@ -327,13 +337,16 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
 
 
         case NODE_ARR_ASSIGN:
-            snprintf(label, sizeof(label), "ARR_ASSIGN\\n%s", node->data.arr_assign.name);
+            snprintf(label, sizeof(label), "ARR_ASSIGN");
             break;
         case NODE_ARR_IDX:
-            snprintf(label, sizeof(label), "ARR_INDEX\\n%s", node->data.arr_idx.name);
+            snprintf(label, sizeof(label), "ARR_INDEX");
             break;
         case NODE_ARR_LIT:
             snprintf(label, sizeof(label), "ARR_LITERAL\\n");
+            break;
+        case NODE_ARR_FILL:
+            snprintf(label, sizeof(label), "ARR_FILL\\n");
             break;
 
 
@@ -356,6 +369,10 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
         case NODE_CAST:
             type_to_str(node->data.cast.type, type_buf, sizeof(type_buf));
             snprintf(label, sizeof(label), "CAST\\n%s", type_buf);
+            break;
+        case NODE_DEFAULT:
+            type_to_str(node->data.default_val.type, type_buf, sizeof(type_buf));
+            snprintf(label, sizeof(label), "DEFAULT\\n%s", type_buf);
             break;
         default:
             snprintf(label, sizeof(label), "%s", node_type_str(node->type));
@@ -435,14 +452,8 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
             if (node->data.for_loop.var) {
                 ast_print_dot_node(fp, node->data.for_loop.var, my_id);
             }
-            if (node->data.for_loop.start) {
-                ast_print_dot_node(fp, node->data.for_loop.start, my_id);
-            }
-            if (node->data.for_loop.end) {
-                ast_print_dot_node(fp, node->data.for_loop.end, my_id);
-            }
-            if (node->data.for_loop.step) {
-                ast_print_dot_node(fp, node->data.for_loop.step, my_id);
+            if (node->data.for_loop.iterable) {
+                ast_print_dot_node(fp, node->data.for_loop.iterable, my_id);
             }
             if (node->data.for_loop.body) {
                 ast_print_dot_node(fp, node->data.for_loop.body, my_id);
@@ -480,6 +491,9 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
             break;
 
         case NODE_ARR_ASSIGN:
+            if (node->data.arr_assign.base) {
+                ast_print_dot_node(fp, node->data.arr_assign.base, my_id);
+            }
             if (node->data.arr_assign.idx) {
                 ast_print_dot_node(fp, node->data.arr_assign.idx, my_id);
             }
@@ -488,6 +502,9 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
             }
             break;
         case NODE_ARR_IDX:
+            if (node->data.arr_idx.base) {
+                ast_print_dot_node(fp, node->data.arr_idx.base, my_id);
+            }
             if (node->data.arr_idx.idx) {
                 ast_print_dot_node(fp, node->data.arr_idx.idx, my_id);
             }
@@ -496,6 +513,15 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
             if (node->data.arr_lit.elements) {
                 ast_print_dot_node(fp, node->data.arr_lit.elements, my_id);
             }
+            break;
+        case NODE_ARR_FILL:
+            if (node->data.arr_fill.elements) {
+                ast_print_dot_node(fp, node->data.arr_fill.elements, my_id);
+            }
+            if (node->data.arr_fill.count) {
+                ast_print_dot_node(fp, node->data.arr_fill.count, my_id);
+            }
+            break;
 
         default:
             break;
@@ -573,6 +599,9 @@ void ast_free(ast_node *node) {
             type_free(node->data.cast.type);
             ast_free(node->data.cast.expr);
             break;
+        case NODE_DEFAULT:
+            type_free(node->data.default_val.type);
+            break;
 
 
         case NODE_DECL:
@@ -594,9 +623,7 @@ void ast_free(ast_node *node) {
 
         case NODE_FOR:
             ast_free(node->data.for_loop.var);
-            ast_free(node->data.for_loop.start);
-            ast_free(node->data.for_loop.end);
-            ast_free(node->data.for_loop.step);
+            ast_free(node->data.for_loop.iterable);
             ast_free(node->data.for_loop.body);
             break;
         case NODE_FOR_DECL:
@@ -626,18 +653,21 @@ void ast_free(ast_node *node) {
 
 
         case NODE_ARR_ASSIGN:
-            free(node->data.arr_assign.name);
+            ast_free(node->data.arr_assign.base);
             ast_free(node->data.arr_assign.idx);
             ast_free(node->data.arr_assign.value);
             break;
         case NODE_ARR_IDX:
-            free(node->data.arr_idx.name);
+            ast_free(node->data.arr_idx.base);
             ast_free(node->data.arr_idx.idx);
             break;
         case NODE_ARR_LIT:
             ast_free(node->data.arr_lit.elements);
             break;
-
+        case NODE_ARR_FILL:
+            ast_free(node->data.arr_fill.elements);
+            ast_free(node->data.arr_fill.count);
+            break;
 
         case NODE_STR:
             free(node->data.string.value);

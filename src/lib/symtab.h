@@ -1,5 +1,6 @@
 #ifndef _SYMTAB_H_
 #define _SYMTAB_H_
+#include "ast.h"
 #include "hashmap.h"
 #include "types.h"
 #include <stdbool.h>
@@ -22,7 +23,7 @@ typedef struct func_sym {
         // User function: program counter
         int pc;
         // Builtin: A C function pointer that writes the bytecode
-        void(*codegen_fn)(prog_t *p, int arg_count);
+        void (*codegen_fn)(prog_t *p, ast_node *node, struct func_sym *sym, int arg_count);
     } impl;
     struct func_sym *next_overload;
     yafl_t *ret_type;
@@ -67,7 +68,8 @@ func_sym *symtab_add_func(symtab *table, const char *name, yafl_t *ret_type,
 void symtab_add_fixup(func_sym *sym, int pc_location);
 
 func_sym *symtab_add_builtin(symtab *table, const char *name, yafl_t* ret_type,
-                               int num_params, yafl_t **param_types, struct ast_node **default_values, void (*codegen_fn)(prog_t *p, int arg_count));
+                               int num_params, yafl_t **param_types, struct ast_node **default_values,
+                               void (*codegen_fn)(prog_t *p, ast_node *node, func_sym *sym, int arg_count));
 
 func_sym *symtab_lookup_func(symtab *table, const char *name,
                                         yafl_t **arg_types, int num_args);

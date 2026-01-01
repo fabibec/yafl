@@ -8,6 +8,15 @@
   case SLEEPMS:
     op_SLEEPMS(exec);
     break;
+  case MKRANGE:
+    op_MKRANGE(exec);
+    break;
+  case ITER_BEGIN:
+    op_ITER_BEGIN(exec);
+    break;
+  case ITER_NEXT:
+    op_ITER_NEXT(exec);
+    break;
   case ADD:
     op_add(exec);
     break;

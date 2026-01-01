@@ -1,4 +1,5 @@
 #include "prog.h"
+#include <string.h>
 #include <stdlib.h>
 #include <time.h>
 #include <errno.h>
@@ -17,7 +18,7 @@ OPCODE(mymul) {
   PUSH(val_mul(v1, v2));
 }
 
-/* Since I'm using my own symtab i want to CALL with a pc -> just copy past of CALL opcode with minor changes */
+/* CALL that uses a pc instead of a function name -> just a blatant copy paste of CALL */
 OPCODE(CALL_PC) {
     MINARGS(2); // nrargs, func_pc
 
@@ -48,11 +49,13 @@ OPCODE(CALL_PC) {
 
 /* Custom opcode to sleep amount of ms */
 OPCODE(SLEEPMS) {
-    val_t *v1 = POP;
-    assert(v1->type == T_NUM);
-    assert(v1->u.num >= 0);
+    MINARGS(1);
+    val_t *v_ms = POP;
 
-    long ms = v1->u.num;
+    assert(v_ms->type == T_NUM);
+    assert(v_ms->u.num >= 0);
+
+    long ms = v_ms->u.num;
     if (ms > 10000) ms = 10000;
 
     struct timespec req, rem;
@@ -63,4 +66,99 @@ OPCODE(SLEEPMS) {
     while (nanosleep(&req, &rem) == -1) {
         req = rem;
     }
+}
+
+/* Iterators */
+
+int is_range(val_t *a) {
+  // lazy range iterator [STR_TAG, cur, end, step]
+  val_t *str_tag = arr_get(a->u.arr, 0);
+  val_t *cur = arr_get(a->u.arr, 1);
+  val_t *end = arr_get(a->u.arr, 2);
+  val_t *step = arr_get(a->u.arr, 3);
+  return (str_tag->type == T_STR && strcmp(str_tag->u.str->buf, "__RANGE__") == 0
+    && cur->type == T_NUM && end->type == T_NUM && step->type == T_NUM);
+}
+
+OPCODE(MKRANGE) {
+  MINARGS(3);
+  val_t *v_start = POP;
+  val_t *v_stop = POP;
+  val_t *v_step = POP;
+
+  assert(v_step->type == T_NUM && v_step->u.num != 0);
+  assert(v_start->type == T_NUM);
+  assert(v_stop->type == T_NUM);
+
+  val_t *a = v_arr_create();
+  arr_set(a->u.arr, 0, v_str_new_cstr("__RANGE__"));
+  arr_set(a->u.arr, 1, v_start);
+  arr_set(a->u.arr, 2, v_stop);
+  arr_set(a->u.arr, 3, v_step);
+  PUSH(a);
+}
+
+OPCODE(ITER_BEGIN){
+  val_t *v = POP;
+
+  assert(v->type == T_ARR || v->type == T_STR);
+
+  if(v->type == T_ARR && is_range(v)) {
+    PUSH(v);
+  } else {
+    // str + arr iterator [iterable, idx, len]
+    val_t *a = v_arr_create();
+    arr_set(a->u.arr, 0, v);
+    arr_set(a->u.arr, 1, v_num_new_int(0));
+    int len = (v->type == T_STR) ? strlen(v->u.str->buf) : arr_len(v->u.arr);
+    arr_set(a->u.arr, 2, v_num_new_int(len));
+    PUSH(a);
+  }
+}
+
+OPCODE(ITER_NEXT){
+  val_t *v = PEEK;
+  assert(v->type == T_ARR);
+
+  if(is_range(v)){
+    int cur = arr_get(v->u.arr, 1)->u.num;
+    int end = arr_get(v->u.arr, 2)->u.num;
+    int step = arr_get(v->u.arr, 3)->u.num;
+
+    // Iterator end -> pop iterator, push 0
+    if((step > 0 && cur >= end) || (step < 0 && cur <= end)) {
+      POP;
+      PUSH(v_num_new_int(0));
+      return;
+    }
+
+    // Iterate -> (1, next_val)
+    PUSH(v_num_new_int(cur));
+    arr_set(v->u.arr, 1, v_num_new_int(cur + step));
+    PUSH(v_num_new_int(1));
+  } else {
+    assert(arr_len(v->u.arr) == 3);
+
+    val_t *iterable = arr_get(v->u.arr, 0);
+    int idx = arr_get(v->u.arr, 1)->u.num;
+    int len = arr_get(v->u.arr, 2)->u.num;
+
+    // Iterator end -> pop iterator, push 0
+    if (idx >= len) {
+      POP;
+      PUSH(v_num_new_int(0));
+      return;
+    }
+
+    // Iterate -> (1, next_val)
+    val_t *el;
+    if(iterable->type == T_STR) {
+      el = v_str_new_buf(iterable->u.str->buf + idx, 1);
+    } else {
+      el = arr_get(iterable->u.arr, idx);
+    }
+    PUSH(el);
+    arr_set(v->u.arr, 1, v_num_new_int(idx + 1));
+    PUSH(v_num_new_int(1));
+  }
 }

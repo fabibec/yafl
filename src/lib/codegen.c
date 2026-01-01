@@ -8,12 +8,13 @@
 #include <stdarg.h>
 
 /* Global state */
-static prog_t *prog = NULL;
-static symtab *prog_symtab = NULL;
+prog_t *prog = NULL;
+symtab *prog_symtab = NULL;
+int temp_var_counter = 0;
 
 /* Forward declarations */
 static void codegen_stmt(ast_node *node);
-static void codegen_expr(ast_node *node);
+void codegen_expr(ast_node *node);
 void codegen_error(int line, const char *fmt, ...);
 
 /* Convert AST param list to type array */
@@ -43,7 +44,7 @@ static ast_node **extract_defaults(ast_node *params, int count) {
 }
 
 /* --- Type Checking --- */
-yafl_t* get_expr_type(symtab *table, ast_node *node) {
+yafl_t* get_expr_type(ast_node *node) {
     if (!node) return NULL;
 
     switch (node->type) {
@@ -56,12 +57,12 @@ yafl_t* get_expr_type(symtab *table, ast_node *node) {
         case NODE_STR:
             return type_new_simple(TYPE_STR);
         case NODE_VAR: {
-            var_sym *sym = symtab_lookup_var(table, node->data.var.name);
+            var_sym *sym = symtab_lookup_var(prog_symtab, node->data.var.name);
             return sym ? type_clone(sym->type) : NULL;
         }
         case NODE_BINARY: {
-            yafl_t *left = get_expr_type(table, node->data.binary.left);
-            yafl_t *right = get_expr_type(table, node->data.binary.right);
+            yafl_t *left = get_expr_type(node->data.binary.left);
+            yafl_t *right = get_expr_type(node->data.binary.right);
             yafl_t *res = NULL;
 
             if (node->data.binary.op == OP_ADD) {
@@ -95,11 +96,11 @@ yafl_t* get_expr_type(symtab *table, ast_node *node) {
                 arg_types = malloc(arg_count * sizeof(yafl_t*));
                 int i = 0;
                 for (ast_node *p = args; p; p = p->next) {
-                    arg_types[i++] = get_expr_type(table, p);
+                    arg_types[i++] = get_expr_type(p);
                 }
             }
 
-            func_sym *sym = symtab_lookup_func(table, node->data.call.name, arg_types, arg_count);
+            func_sym *sym = symtab_lookup_func(prog_symtab, node->data.call.name, arg_types, arg_count);
             type_list_free(arg_types, arg_count);
 
             return sym ? type_clone(sym->ret_type) : NULL;
@@ -109,14 +110,17 @@ yafl_t* get_expr_type(symtab *table, ast_node *node) {
             if (node->data.unary.op == OP_NOT) {
                 return type_new_simple(TYPE_BOOL);
             }
-            return get_expr_type(table, node->data.unary.operand);
+            return get_expr_type(node->data.unary.operand);
         }
 
         case NODE_ARR_IDX: {
-            var_sym *sym = symtab_lookup_var(table, node->data.arr_idx.name);
-            if (sym && sym->type && sym->type->base_t == TYPE_ARR) {
-                return type_clone(sym->type->comp_t);
+            yafl_t *base_type = get_expr_type(node->data.arr_idx.base);
+            if (base_type && base_type->base_t == TYPE_ARR) {
+                yafl_t *ret = type_clone(base_type->comp_t);
+                type_free(base_type);
+                return ret;
             }
+            type_free(base_type);
             return NULL;
         }
         case NODE_ARR_LIT: {
@@ -124,12 +128,12 @@ yafl_t* get_expr_type(symtab *table, ast_node *node) {
             // Empty array literals are not allowed anymore
 
             // Get first type and check if everything else is equal
-            yafl_t *first_type = get_expr_type(table, el);
+            yafl_t *first_type = get_expr_type(el);
             if (!first_type) return NULL;
 
             el = el->next;
             while (el) {
-                yafl_t *next_type = get_expr_type(table, el);
+                yafl_t *next_type = get_expr_type(el);
                 if (!type_equals(first_type, next_type)) {
                     codegen_error(node->line, "Array literal elements must have same type");
                 }
@@ -137,6 +141,13 @@ yafl_t* get_expr_type(symtab *table, ast_node *node) {
                 el = el->next;
             }
             return type_new_composite(first_type);
+        }
+        case NODE_ARR_FILL: {
+            yafl_t *val_type = get_expr_type(node->data.arr_fill.elements);
+            return type_new_composite(val_type);
+        }
+        case NODE_DEFAULT: {
+            return type_clone(node->data.default_val.type);
         }
 
         default:
@@ -231,6 +242,24 @@ void codegen_list_reverse(ast_node *elem, int *count) {
     if(count) (*count)++;
 }
 
+void codegen_push_func_arguments(ast_node *node, func_sym *sym, int arg_count){
+    // Generate default values for missing arguments (pushed first -> bottom of stack)
+    if (arg_count < sym->num_params) {
+        if (!sym->default_values) {
+                codegen_error(node->line, "Missing arguments for function '%s'", node->data.call.name);
+        }
+        for (int i = sym->num_params - 1; i >= arg_count; i--) {
+            if (!sym->default_values[i]) {
+                codegen_error(node->line, "Missing argument %d for function '%s' (no default value)",
+                    i+1, node->data.call.name);
+            }
+            codegen_expr(sym->default_values[i]);
+        }
+    }
+
+    // Push explicit arguments to stack in reverse order
+    codegen_list_reverse(node->data.call.args, NULL);
+}
 
 /* Helper to lookup variable id and generate the correct OPCODE (local/global)*/
 static void codegen_set_get_var(char *name, int line, enum opcodes op_type){
@@ -245,7 +274,7 @@ static void codegen_set_get_var(char *name, int line, enum opcodes op_type){
 
 
 
-static void codegen_expr(ast_node *node) {
+void codegen_expr(ast_node *node) {
     if (!node) return;
 
     switch (node->type) {
@@ -334,7 +363,7 @@ static void codegen_expr(ast_node *node) {
 
         case NODE_ARR_IDX: {
             codegen_expr(node->data.arr_idx.idx);
-            codegen_set_get_var(node->data.arr_idx.name, node->line, GETVAR);
+            codegen_expr(node->data.arr_idx.base);
             prog_add_op(prog, INDEX1);
             break;
         }
@@ -349,6 +378,71 @@ static void codegen_expr(ast_node *node) {
             break;
         }
 
+        case NODE_DEFAULT: {
+            codegen_zero_init(node->data.default_val.type, node->line);
+            break;
+        }
+
+        case NODE_ARR_FILL: {
+            // new pseudo scope to prevent duplication of count and idx variables
+            symtab_enter_scope(prog_symtab);
+            codegen_expr(node->data.arr_fill.count);
+
+            yafl_t *cnt_type = type_new_simple(TYPE_SINT);
+            var_sym *cnt_sym = codegen_register_var(".count", cnt_type, node->line);
+            type_free(cnt_type);
+            prog_add_num(prog, cnt_sym->nr);
+            prog_add_op(prog, SETVAR);
+
+            yafl_t *idx_type = type_new_simple(TYPE_SINT);
+            var_sym *idx_sym = codegen_register_var(".idx", idx_type, node->line);
+            type_free(idx_type);
+            prog_add_num(prog, 0);
+            prog_add_num(prog, idx_sym->nr);
+            prog_add_op(prog, SETVAR);
+
+            int loop_start_pc = prog_next_pc(prog);
+
+            // idx < count
+            prog_add_num(prog, cnt_sym->nr);
+            prog_add_op(prog, GETVAR);
+            prog_add_num(prog, idx_sym->nr);
+            prog_add_op(prog, GETVAR);
+            prog_add_op(prog, LESS);
+
+            int jmp_out_pc = prog_add_num(prog, -1); // Placeholder
+            prog_add_op(prog, JUMPF);
+
+            // Push elements in reverse order for MKARRAY
+            codegen_list_reverse(node->data.arr_fill.elements, NULL);
+
+            // Increment idx
+            prog_add_num(prog, idx_sym->nr);
+            prog_add_op(prog, GETVAR);
+            prog_add_op(prog, INC);
+            prog_add_num(prog, idx_sym->nr);
+            prog_add_op(prog, SETVAR);
+
+            // Jump back
+            prog_add_num(prog, loop_start_pc);
+            prog_add_op(prog, JUMP);
+
+            // Patch exit jump
+            prog_set_num(prog, jmp_out_pc, prog_next_pc(prog));
+
+            // Push total count for MKARRAY: count * list_length
+            int list_len = 0;
+            for (ast_node *e = node->data.arr_fill.elements; e; e = e->next) list_len++;
+            prog_add_num(prog, list_len);
+            prog_add_num(prog, cnt_sym->nr);
+            prog_add_op(prog, GETVAR);
+            prog_add_op(prog, MUL);
+
+            prog_add_op(prog, MKARRAY);
+            symtab_exit_scope(prog_symtab);
+            break;
+        }
+
         case NODE_CALL: {
             // Need to determine types of arguments to resolve overload
             int arg_count = 0;
@@ -360,7 +454,7 @@ static void codegen_expr(ast_node *node) {
                 arg_types = malloc(arg_count * sizeof(yafl_t*));
                 int i = 0;
                 for (ast_node *p = args; p; p = p->next) {
-                    arg_types[i++] = get_expr_type(prog_symtab, p);
+                    arg_types[i++] = get_expr_type(p);
                 }
             }
 
@@ -372,28 +466,13 @@ static void codegen_expr(ast_node *node) {
             }
             type_list_free(arg_types, arg_count);
 
-            // Generate default values for missing arguments (pushed first -> bottom of stack)
-            if (arg_count < sym->num_params) {
-                if (!sym->default_values) {
-                     codegen_error(node->line, "Missing arguments for function '%s'", node->data.call.name);
-                }
-                for (int i = sym->num_params - 1; i >= arg_count; i--) {
-                    if (!sym->default_values[i]) {
-                        codegen_error(node->line, "Missing argument %d for function '%s' (no default value)",
-                            i+1, node->data.call.name);
-                    }
-                    codegen_expr(sym->default_values[i]);
-                }
-            }
 
-            // Push explicit arguments to stack in reverse order
-            codegen_list_reverse(node->data.call.args, NULL);
 
             if (sym->is_builtin) {
                 // Execute the builtin codegen
-                // Pass total param count including defaults
-                sym->impl.codegen_fn(prog, sym->num_params);
+                sym->impl.codegen_fn(prog, node, sym, arg_count);
             } else {
+                codegen_push_func_arguments(node, sym, arg_count);
                 prog_add_num(prog, sym->num_params);
                 int pc_loc = prog_add_num(prog, sym->impl.pc);
 
@@ -500,15 +579,14 @@ static void codegen_stmt(ast_node *node) {
         }
 
         case NODE_FOR: {
-            // Equivalent to:
-            //   i = start
-            //   while (i < end) {
-            //     body
-            //     i += step
-            //   }
+            // Loop variable lives in extra scope
+            symtab_enter_scope(prog_symtab);
 
-            // Generate loop variable
-            symtab_enter_scope(prog_symtab); // loop_var gets extra scope
+            // Create Iterator
+            codegen_expr(node->data.for_loop.iterable);
+            prog_add_op(prog, ITER_BEGIN);
+
+            // Register loop variable
             ast_node *var_node = node->data.for_loop.var;
             var_sym *loop_var;
             if (var_node->type == NODE_FOR_DECL){
@@ -517,29 +595,23 @@ static void codegen_stmt(ast_node *node) {
                 loop_var = codegen_lookup_var(var_node->data.for_var.name, var_node->line);
             }
 
-            codegen_expr(node->data.for_loop.start);
-            codegen_set_get_var(loop_var->name, node->data.for_loop.start->line, SETVAR);
+            int loop_start_pc = prog_next_pc(prog);
 
-            int cond_pc = prog_next_pc(prog);
-            codegen_expr(node->data.for_loop.end);
-            codegen_set_get_var(loop_var->name, var_node->line, GETVAR);
-            prog_add_op(prog, LESS);
-
+            // ITER_NEXT -> (iterator, val, 1) OR (0)
+            prog_add_op(prog, ITER_NEXT);
             int exit_jmp = prog_add_num(prog, -1);
             prog_add_op(prog, JUMPF);
+            prog_add_num(prog, loop_var->nr);
+            prog_add_op(prog, SETVAR);
 
             codegen_stmt(node->data.for_loop.body);
 
-            codegen_expr(node->data.for_loop.step);
-            codegen_set_get_var(loop_var->name, node->data.for_loop.step->line, GETVAR);
-            prog_add_op(prog, ADD);
-            codegen_set_get_var(loop_var->name, node->data.for_loop.step->line, SETVAR);
-
-            prog_add_num(prog, cond_pc);
+            prog_add_num(prog, loop_start_pc);
             prog_add_op(prog, JUMP);
 
-            int ext_jmp_trgt = prog_next_pc(prog);
-            prog_set_num(prog, exit_jmp, ext_jmp_trgt);
+            // Patch exit
+            int exit_jmp_trgt = prog_next_pc(prog);
+            prog_set_num(prog, exit_jmp, exit_jmp_trgt);
 
             symtab_exit_scope(prog_symtab);
             break;
@@ -557,7 +629,7 @@ static void codegen_stmt(ast_node *node) {
         case NODE_ARR_IDX:
         case NODE_ARR_LIT: {
             codegen_expr(node);
-            yafl_t *t = get_expr_type(prog_symtab, node);
+            yafl_t *t = get_expr_type(node);
             if (t && t->base_t != TYPE_VOID) {
                 prog_add_op(prog, DISCARD);
             }
@@ -568,7 +640,7 @@ static void codegen_stmt(ast_node *node) {
         case NODE_ARR_ASSIGN: {
             codegen_expr(node->data.arr_assign.value);
             codegen_expr(node->data.arr_assign.idx);
-            codegen_set_get_var(node->data.arr_assign.name, node->line, GETVAR);
+            codegen_expr(node->data.arr_assign.base);
             prog_add_op(prog, INDEXAS);
             break;
         }
