@@ -1,6 +1,8 @@
 #ifndef _HASHMAP_H_
 #define _HASHMAP_H_
 
+typedef void (*hashmap_destructor)(void *value);
+
 /* Generic hash map entry */
 typedef struct hashmap_entry {
     char *key;
@@ -16,11 +18,11 @@ typedef struct hashmap {
     float load_factor;
     // Threshold for resizing (e.g., 0.75)
     // value destructor for cleanup
-    void (*value_destructor)(void *value);
+    hashmap_destructor destroy;
 } hashmap;
 
 
-hashmap *hashmap_create(int initial_capacity, float load_factor, void (*value_destructor)(void*));
+hashmap *hashmap_create(int initial_capacity, float load_factor, hashmap_destructor destroy);
 void hashmap_free(hashmap *map);
 
 int hashmap_put(hashmap *map, const char *key, void *value);

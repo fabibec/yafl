@@ -38,6 +38,7 @@
 %token <str> L_STR ID ID_VAR
 %token KW_FN KW_RET KW_IF KW_ELIF KW_ELSE KW_WHILE KW_FOR KW_IN KW_NEXT KW_STOP
 %token KW_WHERE
+%token KW_MATCH KW_CASE KW_DEFAULT
 %token S_RARROW S_LARROW
 %token OP_UN_DEC OP_UN_INC
 %token OP_BIN_LE OP_BIN_GE OP_BIN_NE
@@ -52,6 +53,7 @@
 %type <node> compound_stmt statement_list statement
 %type <node> var_decl_stmt assignment_stmt return_stmt
 %type <node> if_stmt opt_else for_stmt while_stmt next_stmt stop_stmt
+%type <node> match_stmt case_list case_item
 %type <node> for_loop_var
 %type <node> expr primary call_expr arr_expr
 %type <node> expr_list expr_list_opt
@@ -139,12 +141,37 @@ statement:
     | if_stmt
     | for_stmt
     | while_stmt
-| next_stmt
-| stop_stmt
+    | next_stmt
+    | stop_stmt
+    | match_stmt
     | expr ';'
     ;
 
 /* --- SPECIFIC STATEMENTS --- */
+match_stmt:
+    KW_MATCH expr '{' case_list '}' {
+        $$ = ast_new_match($2, $4);
+    }
+    ;
+
+case_list:
+    case_list case_item { $$ = ast_append($1, $2); }
+    | case_item
+    ;
+
+case_item:
+    KW_CASE expr S_RARROW compound_stmt {
+        $$ = ast_new_case($2, $4);
+    }
+    | KW_CASE expr S_RARROW {
+        /* Empty body -> Fallthrough (represented by NULL body) */
+        $$ = ast_new_case($2, NULL);
+    }
+    | KW_DEFAULT S_RARROW compound_stmt {
+        $$ = ast_new_case(NULL, $3); /* Default case has NULL expr */
+    }
+    ;
+
 var_decl_stmt:
     type_specifier ID_VAR S_LARROW expr ';' {
         $$ = ast_new_decl($1, $2, $4);

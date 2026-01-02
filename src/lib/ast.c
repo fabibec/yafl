@@ -185,6 +185,20 @@ ast_node *ast_new_default(yafl_t *type) {
 }
 
 
+ast_node *ast_new_match(ast_node *expr, ast_node *cases) {
+    ast_node *node = ast_new_node(NODE_MATCH);
+    node->data.match_stmt.expr = expr;
+    node->data.match_stmt.cases = cases;
+    return node;
+}
+
+ast_node *ast_new_case(ast_node *expr, ast_node *body) {
+    ast_node *node = ast_new_node(NODE_CASE);
+    node->data.case_stmt.expr = expr;
+    node->data.case_stmt.body = body;
+    return node;
+}
+
 /* Append node to end of linked list */
 ast_node *ast_append(ast_node *list, ast_node *node) {
     if (!list) return node;
@@ -227,6 +241,8 @@ static const char *node_type_str(ast_node_t type) {
         case NODE_VAR: return "VAR";
         case NODE_CALL: return "CALL";
         case NODE_CAST: return "CAST";
+        case NODE_MATCH: return "MATCH";
+        case NODE_CASE: return "CASE";
         default: return "UNKNOWN";
     }
 }
@@ -263,6 +279,20 @@ static const char *un_op_str(un_op_t op) {
 // Monotonic counter for unique id's
 static int dot_node_id = 0;
 
+/* Remove characters that can't be visualized */
+void ast_dot_str_escape(char *s) {
+    if (!s) return;
+    char *p = s;
+    while (*p) {
+        if (*p == '"') {
+            *p = '\''; // Replace double quote with single to avoid breaking DOT
+        } else if (*p < 32 || *p > 126) {
+            *p = '?'; // Replace unprintable with ?
+        }
+        p++;
+    }
+}
+
 /* Recursive helper to print AST to dot file */
 static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
     if (!node) return;
@@ -270,7 +300,7 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
     int my_id = dot_node_id++;
 
     // Node label based on type
-    char label[256];
+    char label[4096];
     char type_buf[128]; // Buffer for type string conversion
 
     switch (node->type) {
@@ -312,6 +342,12 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
 
         case NODE_IF:
             snprintf(label, sizeof(label), "IF");
+            break;
+        case NODE_MATCH:
+            snprintf(label, sizeof(label), "MATCH");
+            break;
+        case NODE_CASE:
+            snprintf(label, sizeof(label), "CASE");
             break;
 
 
@@ -395,6 +431,9 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
             break;
     }
 
+    // Escape special chars in label
+    ast_dot_str_escape(label);
+
     // Print node
     fprintf(fp, "  node%d [label=\"%s\"];\n", my_id, label);
 
@@ -460,6 +499,22 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
             }
             if (node->data.if_stmt.else_block) {
                 ast_print_dot_node(fp, node->data.if_stmt.else_block, my_id);
+            }
+            break;
+        case NODE_MATCH:
+            if (node->data.match_stmt.expr) {
+                ast_print_dot_node(fp, node->data.match_stmt.expr, my_id);
+            }
+            if (node->data.match_stmt.cases) {
+                ast_print_dot_node(fp, node->data.match_stmt.cases, my_id);
+            }
+            break;
+        case NODE_CASE:
+            if (node->data.case_stmt.expr) {
+                ast_print_dot_node(fp, node->data.case_stmt.expr, my_id);
+            }
+            if (node->data.case_stmt.body) {
+                ast_print_dot_node(fp, node->data.case_stmt.body, my_id);
             }
             break;
 
@@ -635,6 +690,14 @@ void ast_free(ast_node *node) {
             ast_free(node->data.if_stmt.condition);
             ast_free(node->data.if_stmt.then_block);
             ast_free(node->data.if_stmt.else_block);
+            break;
+        case NODE_MATCH:
+            ast_free(node->data.match_stmt.expr);
+            ast_free(node->data.match_stmt.cases);
+            break;
+        case NODE_CASE:
+            ast_free(node->data.case_stmt.expr);
+            ast_free(node->data.case_stmt.body);
             break;
 
         case NODE_FOR:

@@ -85,6 +85,10 @@ IGNORE [ \t\n]+
 "fn" { return KW_FN; }
 "ret" { return KW_RET; }
 
+"match" { return KW_MATCH; }
+"case" { return KW_CASE; }
+"otherwise" { return KW_DEFAULT; }
+
 "if" { return KW_IF; }
 "elif" { return KW_ELIF; }
 "else"  { return KW_ELSE; }

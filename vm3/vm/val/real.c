@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -5,6 +6,8 @@
 #include "prog.h"
 #include "val.h"
 #include "str.h"
+#include "utils.h"
+
 
 
 val_t *v_real_new_double (double i) {
@@ -50,12 +53,40 @@ val_t *v_real_to_string (val_t *real) {
   return v_str_new_cstr(buf);
 }
 
+/* add the ability to parse lexer like floats */
+static double parse_yafl_float(const char *s) {
+    int base = 10;
+    const char *p = s;
+
+    const char *hash = strchr(s, '#');
+    if (hash) {
+        if (hash == s) {
+            base = 16;
+            p = hash + 1;
+        } else {
+            base = parse_base(s);
+            if (!base) return NAN;
+            p = hash + 1;
+        }
+    }
+
+    return parse_based_float(base, p);
+}
+
 val_t *v_real_conv (val_t *v) {
  char *ptr;
  switch (v->type) {
    case T_STR:
      ptr = v->u.str->buf;
-     double nr = atof(ptr);
+     /* Changed this part */
+     double nr = parse_yafl_float(ptr);
+     if(isnan(nr)){
+       /* Interpret single char string as their ascii value */
+       if (v->u.str->len == 1) {
+         return v_real_new_double((double)(unsigned char)v->u.str->buf[0]);
+       }
+      return &val_undef;
+     }
      return v_real_new_double(nr);
    /* Add support for num-> real */
    case T_NUM:

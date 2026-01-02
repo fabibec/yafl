@@ -3,6 +3,8 @@
 #include "symtab.h"
 #include "prog.h"
 #include "utils.h"
+#include "vector.h"
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -471,7 +473,7 @@ void codegen_expr(ast_node *node) {
 
             if (sym->is_builtin) {
                 // Execute the builtin codegen
-                sym->impl.codegen_fn(prog, node, sym, arg_count);
+                sym->impl.codegen(prog, node, sym, arg_count);
             } else {
                 codegen_push_func_arguments(node, sym, arg_count);
                 prog_add_num(prog, sym->num_params);
@@ -581,6 +583,127 @@ static void codegen_stmt(ast_node *node) {
             prog_set_num(prog, exit_jmp, ext_jmp_trgt);
 
             loop_pop(ext_jmp_trgt);
+            break;
+        }
+
+        case NODE_MATCH: {
+            val_t *switch_map = v_map_create();
+            int map_const_id = prog_new_constant(prog, switch_map);
+            prog_add_num(prog, map_const_id);
+            prog_add_op(prog, CONSTANT); // Map
+
+            int default_pc_loc = prog_add_num(prog, -1); // Default pc
+            codegen_expr(node->data.match_stmt.expr); // Match val
+
+            prog_add_num(prog, 3); // Arg count
+
+            val_t *fn_name = v_str_new_cstr("SWITCH_LOOKUP");
+            int fn_id = prog_new_constant(prog, fn_name);
+            prog_add_num(prog, fn_id);
+            prog_add_op(prog, CONSTANT);
+            prog_add_op(prog, CALL);
+            prog_add_op(prog, JUMP);
+
+            /* Prepare for backpatching breaks */
+            vector break_jumps_vec;
+            vector *break_jumps = &break_jumps_vec;
+            vector_init(break_jumps, NULL);
+
+            /* Pending cases (fallthrough) */
+            vector pending_keys_vec;
+            vector *pending_keys = &pending_keys_vec;
+            vector_init(pending_keys, NULL);
+
+            bool default_pc_set = false;
+            bool pending_default = false;
+
+            /* Generate cases */
+            ast_node *case_node = node->data.match_stmt.cases;
+            while (case_node) {
+                ast_node *expr = case_node->data.case_stmt.expr;
+                ast_node *body = case_node->data.case_stmt.body;
+
+                if (expr) {
+                    // Regular case
+                    val_t *key_val = NULL;
+                    switch (expr->type){
+                        case NODE_BOOL:
+                            key_val = v_num_new_int(expr->data.boolean.value);
+                            break;
+                        case NODE_INT:
+                            key_val = v_num_new_int(expr->data.integer.value);
+                            break;
+                        case NODE_STR:
+                            key_val = v_str_new_cstr(expr->data.string.value);
+                            break;
+                        default:
+                            codegen_error(case_node->line, "Switch case must be a constant literal (int, str, bool)");
+                            break;
+                    }
+                    vector_push(pending_keys, key_val);
+                } else {
+                    // Default case
+                    if (default_pc_set || pending_default) {
+                        codegen_error(case_node->line, "Multiple default cases in switch");
+                    }
+                    if (!body) {
+                        // Default as fallthrough
+                        pending_default = true;
+                    }
+                }
+
+                if (body) {
+                    int current_pc = prog_next_pc(prog);
+
+                    // map all pending keys (no body) to this body (fallthrough)
+                    while(!vector_is_empty(pending_keys)){
+                        map_set(switch_map->u.map, (val_t *)vector_pop(pending_keys), v_num_new_int(current_pc));
+                    }
+
+                    if (expr == NULL) {
+                        // Default body
+                        prog_set_num(prog, default_pc_loc, current_pc);
+                        default_pc_set = true;
+                    } else if (pending_default) {
+                        // Default is pending
+                        prog_set_num(prog, default_pc_loc, current_pc);
+                        default_pc_set = true;
+                        pending_default = false;
+                    }
+
+                    codegen_stmt(body);
+
+                    // Implicit break: jump to end
+                    int jmp = prog_add_num(prog, -1);
+                    prog_add_op(prog, JUMP);
+                    int *jmp_ptr = malloc(sizeof(int));
+                    *jmp_ptr = jmp;
+                    vector_push(break_jumps, jmp_ptr);
+                }
+
+                case_node = case_node->next;
+            }
+
+            int end_pc = prog_next_pc(prog);
+
+            /* Patch breaks */
+            while(!vector_is_empty(break_jumps)){
+                int *ptr = (int *)vector_pop(break_jumps);
+                prog_set_num(prog, *ptr, end_pc);
+                free(ptr);
+            }
+            vector_free(break_jumps);
+
+            /* If default never set, set to end_pc */
+            if (!default_pc_set) {
+                prog_set_num(prog, default_pc_loc, end_pc);
+            }
+
+            /* Map remaining pending keys to end_pc (empty cases at end) */
+            while(!vector_is_empty(pending_keys)){
+                map_set(switch_map->u.map, (val_t *)vector_pop(pending_keys), v_num_new_int(end_pc));
+            }
+            vector_free(pending_keys);
             break;
         }
 

@@ -13,6 +13,10 @@ typedef struct {
     bool is_global;
 } var_sym;
 
+struct func_sym;
+
+typedef void (*codegen_fn)(prog_t *p, ast_node *node, struct func_sym *sym, int arg_count);
+
 typedef struct func_sym {
     char *name;
     yafl_t** param_types;
@@ -23,7 +27,7 @@ typedef struct func_sym {
         // User function: program counter
         int pc;
         // Builtin: A C function pointer that writes the bytecode
-        void (*codegen_fn)(prog_t *p, ast_node *node, struct func_sym *sym, int arg_count);
+        codegen_fn codegen;
     } impl;
     struct func_sym *next_overload;
     yafl_t *ret_type;
@@ -69,7 +73,7 @@ void symtab_add_fixup(func_sym *sym, int pc_location);
 
 func_sym *symtab_add_builtin(symtab *table, const char *name, yafl_t* ret_type,
                                int num_params, yafl_t **param_types, struct ast_node **default_values,
-                               void (*codegen_fn)(prog_t *p, ast_node *node, func_sym *sym, int arg_count));
+                               codegen_fn codegen);
 
 func_sym *symtab_lookup_func(symtab *table, const char *name,
                                         yafl_t **arg_types, int num_args);

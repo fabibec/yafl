@@ -46,7 +46,9 @@ typedef enum {
     NODE_BOOL,
     NODE_VAR,
     NODE_CAST,
-    NODE_DEFAULT
+    NODE_DEFAULT,
+    NODE_MATCH,
+    NODE_CASE
 } ast_node_t;
 
 typedef struct ast_node {
@@ -103,6 +105,14 @@ typedef struct ast_node {
             struct ast_node *else_block;
         } if_stmt;
         struct {
+            struct ast_node *expr;
+            struct ast_node *cases;
+        } match_stmt;
+        struct {
+            struct ast_node *expr; // NULL for default
+            struct ast_node *body; // NULL for fallthrough
+        } case_stmt;
+        struct {
             // loop variable
             struct ast_node *var;
             // iterable expression (range(...), array, string)
@@ -139,7 +149,7 @@ typedef struct ast_node {
 
 
         struct {
-            struct ast_node * elements;
+            struct ast_node *elements;
         } arr_lit;
         struct {
             struct ast_node *elements;
@@ -194,6 +204,8 @@ ast_node *ast_new_decl(yafl_t *type, char* name, ast_node* init);
 ast_node *ast_new_assign(char* name, ast_node* value);
 
 ast_node *ast_new_if(ast_node* condition, ast_node* then_block, ast_node* else_block);
+ast_node *ast_new_match(ast_node *expr, ast_node *cases);
+ast_node *ast_new_case(ast_node *expr, ast_node *body);
 
 ast_node *ast_new_for(ast_node* var, ast_node* iterable, ast_node* body);
 ast_node *ast_new_while(ast_node* cond, ast_node* body);

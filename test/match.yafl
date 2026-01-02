@@ -1,0 +1,35 @@
+fn start() -> int {
+    print(>>--- Match Test ---<<);
+
+    int |x| <- 2;
+    match |x| {
+        case 1 -> { print(>>One<<); }
+        case 2 -> { print(>>Two<<); }
+        case 3 -> { print(>>Three<<); }
+        otherwise -> { print(>>Other<<); }
+    }
+
+    print(>>--- Fallthrough Test ---<<);
+    match 2 {
+        case 1 -> { print(>>One<<); }
+        case 2 ->
+        case 3 -> { print(>>Two or Three<<); }
+        otherwise -> { print(>>Other<<); }
+    }
+
+    print(>>--- String Match ---<<);
+    str |s| <- >>hello<<;
+    match |s| {
+        case >>hi<< -> { print(>>Hi there<<); }
+        case >>hello<< -> { print(>>Hello there<<); }
+        otherwise -> { print(>>Unknown<<); }
+    }
+
+    print(>>--- Default Fallback ---<<);
+    match 99 {
+        case 1 -> { print(>>1<<); }
+        otherwise -> { print(>>Default hit<<); }
+    }
+
+    ret 0;
+}

@@ -1,66 +1,78 @@
-CC=gcc
-CFLAGS=-O3 -Wall -ggdb
-LDFLAGS=-lm -Ibuild -Ilib -I../vm3/vm
+CC = gcc
+CPPFLAGS = -Ibuild -Ilib -I../vm3/vm -MMD -MP
+CFLAGS = -O3 -Wall -ggdb --std=gnu23
+LDLIBS = -lm
+BUILD = build
 
-all: build vm3 yafl yaflc
+COMMON_OBJS = \
+	$(BUILD)/lexer.o \
+	$(BUILD)/parser.o \
+	$(BUILD)/stringbuf.o \
+	$(BUILD)/ast.o \
+	$(BUILD)/optim.o \
+	$(BUILD)/codegen.o \
+	$(BUILD)/builtins.o \
+	$(BUILD)/utils.o \
+	$(BUILD)/symtab.o \
+	$(BUILD)/hashmap.o \
+	$(BUILD)/types.o \
+	$(BUILD)/loop_stack.o \
+	$(BUILD)/vector.o
 
-build:
-	mkdir -p build
+YAFL_OBJS = $(BUILD)/yafl.o
+YAFLC_OBJS = $(BUILD)/yaflc.o
 
-vm3:
-	make -C ../vm3/vm vm libvm3.a
+# default
+.PHONY: all
+all: $(BUILD) vm3 yafl yaflc
 
-build/stringbuf.o: lib/stringbuf.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
+# build dir
+$(BUILD):
+	mkdir -p $@
 
-build/loop_stack.o: lib/loop_stack.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
+# vm3
+../vm3/vm/libvm3.a:
+	$(MAKE) -C ../vm3/vm vm libvm3.a
 
-build/ast.o: lib/ast.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
+.PHONY: vm3
+vm3: ../vm3/vm/libvm3.a
 
-build/optim.o: lib/optim.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
+# Rule for file in lib
+$(BUILD)/%.o: lib/%.c | $(BUILD)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
 
-build/utils.o: lib/utils.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
+# Bison
+$(BUILD)/parser.c $(BUILD)/parser.h: parser.y | $(BUILD)
+	bison --defines=$(BUILD)/parser.h -o $(BUILD)/parser.c $<
 
-build/types.o: lib/types.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
+$(BUILD)/parser.o: $(BUILD)/parser.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
 
-build/hashmap.o: lib/hashmap.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
-
-build/symtab.o: lib/symtab.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
-
-build/codegen.o: lib/codegen.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
-
-build/builtins.o: lib/builtins.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
-
-build/yaflc.o: yaflc.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
-
-build/parser.c: parser.y | build
-	bison --defines=build/parser.h -o $@ $^
-
-build/parser.o: build/parser.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
-
-build/lexer.c: lexer.l | build/parser.c build
+# Flex
+$(BUILD)/lexer.c: lexer.l $(BUILD)/parser.h | $(BUILD)
 	flex -o $@ $<
 
-build/lexer.o: build/lexer.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -c -o $@ $^
+$(BUILD)/lexer.o: $(BUILD)/lexer.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
 
-yafl: yafl.c ../vm3/vm/libvm3.a | build
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< ../vm3/vm/libvm3.a
+# Yafl toolchain
+$(BUILD)/yaflc.o: yaflc.c | $(BUILD)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
 
-yaflc: build/lexer.o build/parser.o build/stringbuf.o build/ast.o build/optim.o build/codegen.o build/builtins.o build/yaflc.o build/utils.o build/symtab.o build/hashmap.o build/types.o build/loop_stack.o ../vm3/vm/libvm3.a
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ -lm
+$(BUILD)/yafl.o: yafl.c | $(BUILD)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
 
+yafl: $(YAFL_OBJS) $(COMMON_OBJS) ../vm3/vm/libvm3.a
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+
+yaflc: $(YAFLC_OBJS) $(COMMON_OBJS) ../vm3/vm/libvm3.a
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+
+# Rebuild on header changes
+-include $(BUILD)/*.d
+
+# Clean
+.PHONY: clean
 clean:
-	rm -rf build yafl yaflc *.dot *.svg
-	make clean -C ../vm3/vm
+	rm -rf $(BUILD) yafl yaflc *.dot *.svg
+	$(MAKE) -C ../vm3/vm clean

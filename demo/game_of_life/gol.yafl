@@ -1,7 +1,29 @@
 int |WIDTH| <- 40;
 int |HEIGHT| <- 20;
 str |ALIVE| <- >>#<<;
-str |DEAD| <- >>.<<;
+str |DEAD| <- >> <<;
+
+fn start() -> int {
+    ~~ Init dead 2D-array
+    arr'arr'str |grid|[|HEIGHT|];
+    for int |i| in range(0, |HEIGHT|) {
+        |grid|[|i|] <- [|DEAD|] * |WIDTH|;
+    }
+
+    clear_screen();
+    println(>>Conway's Game of Life in Yafl by Fabian Becker<<);
+    init_random(|grid|);
+
+    sleep(2_000);
+
+    while(Yes){
+        clear_screen();
+        print_grid(|grid|);
+        update(|grid|);
+        sleep(10);
+    }
+    ret 0;
+}
 
 fn clear_screen() -> none {
     print(>>^x1B[H^x1B[J<<);
@@ -76,24 +98,3 @@ fn init_random(arr'arr'str: |grid|) -> none {
     }
 }
 
-fn start() -> int {
-    ~~ Init dead 2D-array
-    arr'arr'str |grid|[|HEIGHT|];
-    for int |i| in range(0, |HEIGHT|) {
-        |grid|[|i|] <- [|DEAD|] * |WIDTH|;
-    }
-
-    clear_screen();
-    println(>>Conway's Game of Life in Yafl by Fabian Becker<<);
-    init_random(|grid|);
-
-    sleep(2_000);
-
-    while(Yes){
-        clear_screen();
-        print_grid(|grid|);
-        update(|grid|);
-        sleep(150);
-    }
-    ret 0;
-}

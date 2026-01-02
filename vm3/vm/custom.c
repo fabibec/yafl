@@ -3,20 +3,6 @@
 #include <stdlib.h>
 #include <time.h>
 #include <errno.h>
-// Add individual opcodes or native functions here
-
-NATIVE(myadd) {
-  val_t *v1 = ARG(0);
-  val_t *v2 = ARG(1);
-
-  return val_add(v1, v2);
-}
-
-OPCODE(mymul) {
-  val_t *v1 = POP;
-  val_t *v2 = POP;
-  PUSH(val_mul(v1, v2));
-}
 
 /* CALL that uses a pc instead of a function name -> just a blatant copy paste of CALL */
 OPCODE(CALL_PC) {
@@ -56,6 +42,7 @@ OPCODE(SLEEPMS) {
     assert(v_ms->u.num >= 0);
 
     long ms = v_ms->u.num;
+    // Cap at 10 seconds
     if (ms > 10000) ms = 10000;
 
     struct timespec req, rem;
@@ -161,4 +148,27 @@ OPCODE(ITER_NEXT){
     arr_set(v->u.arr, 1, v_num_new_int(idx + 1));
     PUSH(v_num_new_int(1));
   }
+}
+
+/* Switch */
+NATIVE(SWITCH_LOOKUP) {
+  val_t *v_match = ARG(0);
+  val_t *v_default_pc = ARG(1);
+  val_t *v_map = ARG(2);
+
+  assert(v_default_pc->type == T_NUM);
+
+  assert(v_map->type == T_MAP);
+  map_t *m = v_map->u.map;
+  assert(v_match->type == m->keys[0]->type);
+
+  val_t *maybe_pc = map_get(m, v_match);
+
+  // Key not found -> return default location
+  if(maybe_pc == &val_undef) {
+    return v_default_pc;
+  }
+
+  assert(maybe_pc->type == T_NUM);
+  return maybe_pc;
 }

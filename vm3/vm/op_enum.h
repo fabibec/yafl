@@ -1,5 +1,4 @@
 typedef struct exec exec_t;
-void op_mymul(exec_t *);
 void op_CALL_PC(exec_t *);
 void op_SLEEPMS(exec_t *);
 void op_MKRANGE(exec_t *);
@@ -57,7 +56,6 @@ void op_jumprel(exec_t *);
 void op_noop(exec_t *);
 enum opcodes {
   INVALID,
-  MYMUL,
   CALL_PC,
   SLEEPMS,
   MKRANGE,

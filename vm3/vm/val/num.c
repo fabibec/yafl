@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include "utils.h"
 
 #include "prog.h"
 #include "val.h"
@@ -40,13 +41,38 @@ val_t *v_num_to_string (val_t *num) {
   return v_str_new_cstr(buf);
 }
 
+/* add the ability to parse lexer like ints */
+static int parse_yafl_int(const char *s, int *out) {
+    int base = 10;
+    const char *p = s;
+
+    const char *hash = strchr(s, '#');
+    if (hash) {
+        if (hash == s) {
+            base = 16;
+            p = hash + 1;
+        } else {
+            base = parse_base(s);
+            if (!base) return 0; // Error
+            p = hash + 1;
+        }
+    }
+
+    return parse_based_int(base, p, out);
+}
+
 val_t *v_num_conv (val_t *v) {
  char *ptr;
  switch (v->type) {
    case T_STR:
      ptr = v->u.str->buf;
-     int nr = strtoul(ptr, &ptr, 10);
-     if (*ptr != '\0') {
+     int nr;
+     int ok = parse_yafl_int(ptr, &nr);
+     if (!ok) {
+       /* Interpret single char string as their ascii value */
+       if (v->u.str->len == 1) {
+         return v_num_new_int((unsigned char)v->u.str->buf[0]);
+       }
        return &val_undef;
      }
      return v_num_new_int(nr);
@@ -88,8 +114,3 @@ void val_register_num (void) {
     .deserialize = v_num_deserialize,
   };
 }
-
-
-
-
-

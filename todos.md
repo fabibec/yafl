@@ -5,7 +5,8 @@
 - [x] multid arr init <br>
 - [x] stop next in for loop <br>
 - [x] scoping with blocks <br>
-- [ ] some char-like construct <br>
+- [x] some char-like construct <br>
+- [x] switch statement <br>
 - [ ] full static type checking <br>
 - [ ] basic optimization <br>
 - [ ] cli for yaflc and yafl

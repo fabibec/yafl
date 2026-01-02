@@ -7,7 +7,11 @@
 
 /* fn print(any: |printable|) -> none */
 void builtins_print(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    if(get_expr_type(node->data.call.args) == type_new_simple(TYPE_RANGE)) {
+    yafl_t *arg_type = get_expr_type(node->data.call.args);
+    bool is_range = arg_type && arg_type->base_t == TYPE_RANGE;
+    type_free(arg_type);
+
+    if(is_range) {
         /*ast_node *str = ast_new_str("range(");
         ast_node *print = ast_new_call("print", str);
         codegen_expr(print);
@@ -22,11 +26,14 @@ void builtins_print(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) 
         codegen_expr(print);
         ast_free(str);
 
+        // Stop
+
         ast_node *str = ast_new_str(",");
         print->data.call.args = str;
         codegen_expr(print);
         ast_free(str);
 
+        // Step
 
         ast_node *str = ast_new_str(")");
         print->data.call.args = str;
@@ -171,15 +178,52 @@ void builtins_to_bool_from_float(prog_t *prog, ast_node *node, func_sym *sym, in
 }
 
 void builtins_to_int_from_str(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    // Everything is just 0
+    codegen_push_func_arguments(node, sym, arg_count);
+    prog_add_num(prog, T_NUM);
+    prog_add_op(prog, CAST);
+
+    // Check if result is undef
+    prog_add_op(prog, DUP);
+    prog_add_op(prog, TYPEOF);
+    prog_add_num(prog, T_UNDEF);
+    prog_add_op(prog, EQUAL);
+
+    int jmp_valid = prog_add_num(prog, -1);
+    prog_add_op(prog, JUMPF);
+
+    // If undef, replace with 0
+    prog_add_op(prog, DISCARD);
     prog_add_num(prog, 0);
+
+    // Patch jump
+    int valid_loc = prog_next_pc(prog);
+    prog_set_num(prog, jmp_valid, valid_loc);
 }
 
 void builtins_to_float_from_str(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
+    codegen_push_func_arguments(node, sym, arg_count);
+    prog_add_num(prog, T_REAL);
+    prog_add_op(prog, CAST);
+
+    // Check if result is undef
+    prog_add_op(prog, DUP);
+    prog_add_op(prog, TYPEOF);
+    prog_add_num(prog, T_UNDEF);
+    prog_add_op(prog, EQUAL);
+
+    int jmp_ok = prog_add_num(prog, -1);
+    prog_add_op(prog, JUMPF);
+
+    // If undef, replace with 0.0
+    prog_add_op(prog, DISCARD);
     val_t *fl = v_real_new_double(0.0);
     int const_id = prog_new_constant(prog, fl);
     prog_add_num(prog, const_id);
     prog_add_op(prog, CONSTANT);
+
+    // Patch jump
+    int ok_trgt = prog_next_pc(prog);
+    prog_set_num(prog, jmp_ok, ok_trgt);
 }
 
 void builtins_to_str_from_bool(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {

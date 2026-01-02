@@ -15,12 +15,12 @@ static unsigned int hash(const char *str) {
     return hash;
 }
 
-hashmap *hashmap_create(int initial_capacity, float load_factor, void (*value_destructor)(void*)) {
+hashmap *hashmap_create(int initial_capacity, float load_factor, hashmap_destructor destroy) {
     hashmap *map = malloc(sizeof(hashmap));
     map->capacity = initial_capacity;
     map->size = 0;
     map->load_factor = load_factor;
-    map->value_destructor = value_destructor;
+    map->destroy = destroy;
     map->buckets = calloc(initial_capacity, sizeof(hashmap_entry*));
     return map;
 }
@@ -34,8 +34,8 @@ void hashmap_free(hashmap *map) {
             hashmap_entry *next = entry->next;
             free(entry->key);
             // Call custom value destructor
-            if (map->value_destructor) {
-                map->value_destructor(entry->value);
+            if (map->destroy) {
+                map->destroy(entry->value);
             }
             free(entry);
             entry = next;
