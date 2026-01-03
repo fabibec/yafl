@@ -75,6 +75,7 @@ IGNORE [ \t\n]+
 "ret" { return KW_RET; }
 
 "if" { return KW_IF; }
+"elif" { return KW_ELIF; }
 "else"  { return KW_ELSE; }
 "while" { return KW_WHILE; }
 "where" { return KW_WHERE; }

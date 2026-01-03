@@ -36,7 +36,7 @@
 %token <nr> L_INT L_BOOL
 %token <fl_nr> L_FLOAT
 %token <str> L_STR ID ID_VAR
-%token KW_FN KW_RET KW_IF KW_ELSE KW_WHILE KW_FOR KW_IN
+%token KW_FN KW_RET KW_IF KW_ELIF KW_ELSE KW_WHILE KW_FOR KW_IN
 %token KW_RANGE KW_PRINT KW_WHERE KW_TO
 %token S_RARROW S_LARROW
 %token OP_UN_DEC OP_UN_INC
@@ -176,6 +176,9 @@ if_stmt:
 
 opt_else:
     KW_ELSE compound_stmt { $$ = $2; }
+    | KW_ELIF '(' expr ')' compound_stmt opt_else {
+        $$ = ast_new_if($3, $5, $6);
+    }
     | %empty { $$ = NULL; }
     ;
 

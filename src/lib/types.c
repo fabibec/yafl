@@ -24,6 +24,12 @@ void type_free(yafl_t *t) {
     }
     free(t);
 }
+void type_list_free(yafl_t **t_list, int len) {
+    for (int i = 0; i < len; i++) {
+        type_free(t_list[i]);
+    }
+    free(t_list);
+}
 
 int type_equals(yafl_t *t1, yafl_t *t2) {
     if (!t1 || !t2) return 0;
@@ -33,6 +39,14 @@ int type_equals(yafl_t *t1, yafl_t *t2) {
         return type_equals(t1->comp_t, t2->comp_t);
     }
     return 1;
+}
+
+yafl_t* type_clone(yafl_t *t) {
+    if (!t) return NULL;
+    if (t->base_t == TYPE_ARR) {
+        return type_new_composite(type_clone(t->comp_t));
+    }
+    return type_new_simple(t->base_t);
 }
 
 void type_to_str(const yafl_t *t, char *buf, size_t len) {

@@ -1,10 +1,10 @@
 fn start() -> int {
     print(>>--- Array Test ---<<);
-    
+
     print(>>1. Simple Int Array<<);
     arr'int |a| <- [1, 2, 3];
     print(|a|);
-    
+
     print(>>2. Simple Str Array<<);
     arr'str |b| <- [>>Hello<<, >>World<<];
     print(|b|);
@@ -16,11 +16,11 @@ fn start() -> int {
     print(>>4. Nested Array<<);
     arr'arr'int |d| <- [[1, 2], [3, 4]];
     print(|d|);
-    
+
     print(>>5. Array Assignment<<);
     |a|[0] <- 100;
     print(|a|);
-    
+
     print(>>--- End Array Test ---<<);
     ret 0;
 }

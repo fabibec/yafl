@@ -222,10 +222,12 @@ static const char *bin_op_str(bin_op_t op) {
     }
 }
 
-static const char *un_op_str(bin_op_t op) {
+static const char *un_op_str(un_op_t op) {
     switch(op){
         case OP_NEG: return "-";
         case OP_NOT: return "!";
+        case OP_INC: return "++";
+        case OP_DEC: return "--";
         default: return "?";
     }
 }
@@ -242,7 +244,7 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
     // Node label based on type
     char label[256];
     char type_buf[128]; // Buffer for type string conversion
-    
+
     switch (node->type) {
         case NODE_BLOCK:
             snprintf(label, sizeof(label), "BLOCK");
@@ -251,13 +253,13 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
 
         case NODE_FUNC:
             type_to_str(node->data.func.return_type, type_buf, sizeof(type_buf));
-            snprintf(label, sizeof(label), "FUNC\n%s\n→ %s",
+            snprintf(label, sizeof(label), "FUNC\\n%s\\n→ %s",
                      node->data.func.name,
                      type_buf);
             break;
         case NODE_PARAM:
             type_to_str(node->data.param.type, type_buf, sizeof(type_buf));
-            snprintf(label, sizeof(label), "PARAM\n%s : %s",
+            snprintf(label, sizeof(label), "PARAM\\n%s : %s",
                      node->data.param.name,
                      type_buf);
             break;
@@ -265,18 +267,18 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
             snprintf(label, sizeof(label), "RETURN");
             break;
         case NODE_CALL:
-            snprintf(label, sizeof(label), "CALL\n%s()", node->data.call.name);
+            snprintf(label, sizeof(label), "CALL\\n%s()", node->data.call.name);
             break;
 
 
         case NODE_DECL:
             type_to_str(node->data.decl.type, type_buf, sizeof(type_buf));
-            snprintf(label, sizeof(label), "DECL\n%s : %s",
+            snprintf(label, sizeof(label), "DECL\\n%s : %s",
                      node->data.decl.name,
                      type_buf);
             break;
         case NODE_ASSIGN:
-            snprintf(label, sizeof(label), "ASSIGN\n%s", node->data.assign.name);
+            snprintf(label, sizeof(label), "ASSIGN\\n%s", node->data.assign.name);
             break;
 
 
@@ -290,12 +292,12 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
             break;
         case NODE_FOR_DECL:
             type_to_str(node->data.for_decl.type, type_buf, sizeof(type_buf));
-            snprintf(label, sizeof(label), "FOR_DECL\n%s : %s",
+            snprintf(label, sizeof(label), "FOR_DECL\\n%s : %s",
                      node->data.for_decl.name,
                      type_buf);
             break;
         case NODE_FOR_VAR:
-            snprintf(label, sizeof(label), "FOR_VAR\n%s",
+            snprintf(label, sizeof(label), "FOR_VAR\\n%s",
                      node->data.for_var.name);
             break;
         case NODE_WHILE:
@@ -309,43 +311,43 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
 
 
         case NODE_BINARY:
-            snprintf(label, sizeof(label), "BINOP\n%s", bin_op_str(node->data.binary.op));
+            snprintf(label, sizeof(label), "BINOP\\n%s", bin_op_str(node->data.binary.op));
             break;
         case NODE_UNARY:
-            snprintf(label, sizeof(label), "UNOP\n%s", un_op_str(node->data.unary.op));
+            snprintf(label, sizeof(label), "UNOP\\n%s", un_op_str(node->data.unary.op));
             break;
 
 
         case NODE_ARR_ASSIGN:
-            snprintf(label, sizeof(label), "ARR_ASSIGN\n%s", node->data.arr_assign.name);
+            snprintf(label, sizeof(label), "ARR_ASSIGN\\n%s", node->data.arr_assign.name);
             break;
         case NODE_ARR_IDX:
-            snprintf(label, sizeof(label), "ARR_INDEX\n%s", node->data.arr_idx.name);
+            snprintf(label, sizeof(label), "ARR_INDEX\\n%s", node->data.arr_idx.name);
             break;
         case NODE_ARR_LIT:
-            snprintf(label, sizeof(label), "ARR_LITERAL\n");
+            snprintf(label, sizeof(label), "ARR_LITERAL\\n");
             break;
 
 
 
         case NODE_INT:
-            snprintf(label, sizeof(label), "INT\n%lu", node->data.integer.value);
+            snprintf(label, sizeof(label), "INT\\n%lu", node->data.integer.value);
             break;
         case NODE_FLOAT:
-            snprintf(label, sizeof(label), "FLOAT\n%lu", node->data.float_nr.value);
+            snprintf(label, sizeof(label), "FLOAT\\n%f", node->data.float_nr.value);
             break;
         case NODE_STR:
-            snprintf(label, sizeof(label), "STR\n\"%s\"", node->data.string.value);
+            snprintf(label, sizeof(label), "STR\\n\\\"%s\\\"", node->data.string.value);
             break;
         case NODE_BOOL:
-            snprintf(label, sizeof(label), "BOOL\n%s", node->data.boolean.value ? "true" : "false");
+            snprintf(label, sizeof(label), "BOOL\\n%s", node->data.boolean.value ? "true" : "false");
             break;
         case NODE_VAR:
-            snprintf(label, sizeof(label), "VAR\n%s", node->data.var.name);
+            snprintf(label, sizeof(label), "VAR\\n%s", node->data.var.name);
             break;
         case NODE_CAST:
             type_to_str(node->data.cast.type, type_buf, sizeof(type_buf));
-            snprintf(label, sizeof(label), "CAST\n%s", type_buf);
+            snprintf(label, sizeof(label), "CAST\\n%s", type_buf);
             break;
         default:
             snprintf(label, sizeof(label), "%s", node_type_str(node->type));
@@ -516,7 +518,16 @@ void ast_print_dot(ast_node *node, const char *filename) {
     fclose(fp);
 
     printf("AST written to %s\n", filename);
-    printf("Generate SVG with: dot -Tsvg %s -o ast.svg\n", filename);
+
+    // Convert to svg automatically
+    char cmd[512];
+    snprintf(cmd, sizeof(cmd), "dot -Tsvg %s -o ast.svg", filename);
+    printf("Generating SVG: %s\n", cmd);
+    if (system(cmd) != 0) {
+        fprintf(stderr, "Error generating SVG. Is 'graphviz' installed?\n");
+    } else {
+        printf("SVG generated at ast.svg\n");
+    }
 }
 
 /* Frees the AST recursively so valgrind doesn't complain ;-)*/

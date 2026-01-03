@@ -27,9 +27,11 @@ yafl_t* type_new_composite(yafl_t *element_type);
 
 /* Destructor */
 void type_free(yafl_t *t);
+void type_list_free(yafl_t **t_list, int len);
 
 /* Utilities */
 int type_equals(yafl_t *t1, yafl_t *t2);
 void type_to_str(const yafl_t *t, char *buf, size_t len);
+yafl_t* type_clone(yafl_t *t);
 
 #endif

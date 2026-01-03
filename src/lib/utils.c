@@ -12,30 +12,6 @@ char* strip_pipes(const char* txt) {
     return strndup(txt + 1, strlen(txt) - 2);
 }
 
-/* Helper to check if valid entry point is present */
-int has_start_function(ast_node *node) {
-    while (node) {
-        if (node->type == NODE_FUNC &&
-            strcmp(node->data.func.name, "start") == 0) {
-            // Verify signature: fn start() -> int
-            if (!node->data.func.return_type || node->data.func.return_type->base_t != TYPE_SINT) {
-                char buf[128];
-                type_to_str(node->data.func.return_type, buf, sizeof(buf));
-                fprintf(stderr, "Error: start() must return int, not %s\n", buf);
-                return 0;
-            }
-            // Validate input parameters
-            if (node->data.func.params != NULL) {
-                fprintf(stderr, "Error: start() must have no parameters\n");
-                return 0;
-            }
-            return 1;
-        }
-        node = node->next;
-    }
-    return 0;
-}
-
 int digit_val(char c) {
     if(c >= '0' && c <= '9') return c - '0';
     if(c >= 'A' && c <= 'F') return c - 'A' + 10;

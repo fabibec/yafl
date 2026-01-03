@@ -1,45 +1,35 @@
 #ifndef _SYMTAB_H_
 #define _SYMTAB_H_
+#include "hashmap.h"
 #include "types.h"
 #include <stdbool.h>
+#include <prog.h>
 
-// Size of symbol table hashmap
-#define SYMTAB_SIZE 1024
-
-// Single symbol
-typedef struct symbol {
+typedef struct {
     char *name;
     yafl_t *type;
+    int nr;
+    bool is_global;
+} var_sym;
+
+typedef struct func_sym {
+    char *name;
+    yafl_t** param_types;
+    int num_params;
+    bool is_builtin;
     union {
-        // variable number
-        struct {
-            int var_nr;
-            bool global;
-        } var;
-        struct {
-            // program counter
-            int pc;
-            // Return type
-            yafl_t *ret_type;
-        } func;
-    };
-    // For hash collision chaining
-    struct symbol *next;
-} symbol;
-
-
-/* Hashmap for one scope */
-typedef struct hashmap {
-    symbol **buckets;
-    int capacity;
-    int size;
-    // Threshold for resizing (e.g., 0.75)
-    float load_factor;
-} hashmap;
+        // User function: program counter
+        int pc;
+        // Builtin: A C function pointer that writes the bytecode
+        void(*codegen_fn)(prog_t *p);
+    } impl;
+    struct func_sym *next_overload;
+    yafl_t *ret_type;
+} func_sym;
 
 /* Scope - linked list of hash maps */
 typedef struct scope {
-    hashmap *map;
+    hashmap *vars;
     struct scope *parent;
     // vars in current scope (start from 0)
     int var_count;
@@ -51,17 +41,9 @@ typedef struct scope {
 typedef struct symtab {
     // Current scope
     scope *current;
+    hashmap* funcs;
     int total_scopes;
 } symtab;
-
-/* --- Hash Map --- */
-hashmap *hashmap_create(int initial_capacity, float load_factor);
-void hashmap_free(hashmap *map);
-
-symbol *hashmap_put(hashmap *map, const char *name, yafl_t *type);
-symbol *hashmap_get(hashmap *map, const char *name);
-
-void hashmap_dump(hashmap *map, int scope_level);
 
 /* --- Symbol Table --- */
 symtab *symtab_create(void);
@@ -69,10 +51,17 @@ void symtab_free(symtab *table);
 void symtab_enter_scope(symtab *table);
 void symtab_exit_scope(symtab *table);
 
-symbol *symtab_add_var(symtab *table, const char *name, yafl_t *type);
-symbol *symtab_add_func(symtab *table, const char *name, yafl_t *ret_type, int pc);
-symbol *symtab_lookup(symtab *table, const char *name);
-symbol *symtab_lookup_current_scope(symtab *table, const char *name);
+var_sym *symtab_add_var(symtab *table, const char *name, yafl_t *type);
+var_sym *symtab_lookup_var(symtab *table, const char *name);
+
+func_sym *symtab_add_func(symtab *table, const char *name, yafl_t *ret_type,
+                           int num_params, yafl_t **param_types, int pc);
+
+func_sym *symtab_add_builtin(symtab *table, const char *name, yafl_t* ret_type,
+                               int num_params, yafl_t **param_types, void (*codegen_fn)(prog_t *p));
+
+func_sym *symtab_lookup_func(symtab *table, const char *name,
+                                        yafl_t **arg_types, int num_args);
 
 void symtab_dump(symtab *table);
 

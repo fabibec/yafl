@@ -13,11 +13,8 @@ fn numbers() -> none {
     print(>>Float Add: << + to<str>(|f1| + |f2|));
     print(>>Float Sub: << + to<str>(|f1| - |f2|));
     print(>>Float Mul: << + to<str>(|f1| * |f2|));
-
-    ~~ Note: Float division/mod might depend on VM implementation support
     print(>>Float Div: << + to<str>(|f1| / |f2|));
 
-    ~~ Mixed types might need casting if implicit conversion is not supported
     print(>>Mixed Add (int+float): << + to<str>(to<float>(|a|) + |f1|));
     print(>>--- End Numbers Test ---<<);
 }
