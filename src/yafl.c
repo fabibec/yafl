@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
     }
 
     // Create executor
-    exec_t *e = exec_new(p);
+    exec_t *e = exec_new(p, argc - 2, (const char **)(argv + 2));
     exec_set_debuglvl(e, debug_idx);
 
     // // Optional: set debug level from command line

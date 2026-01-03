@@ -174,13 +174,13 @@ val_t *val_add (val_t *v1, val_t *v2) {
         return &val_undef;
       ret = v_num_new_int(v1->u.num + v2->u.num);
       return ret;
-    
+
     case T_REAL:
       if (v2->type != T_REAL)
         return &val_undef;
       ret = v_real_new_double(v1->u.real + v2->u.real);
       return ret;
-    
+
     case T_ARR:
       ret = val_copy(v1);
       if (v2->type == T_ARR) {
@@ -206,13 +206,13 @@ val_t *val_sub (val_t *v1, val_t *v2) {
         return &val_undef;
       ret = v_num_new_int(v1->u.num - v2->u.num);
       return ret;
-    
+
     case T_REAL:
       if (v2->type != T_REAL)
         return &val_undef;
       ret = v_real_new_double(v1->u.real - v2->u.real);
       return ret;
-    
+
     default:
       return &val_undef;
   }
@@ -244,7 +244,7 @@ val_t *val_mul (val_t *v1, val_t *v2) {
         return &val_undef;
       ret = v_num_new_int(v1->u.num * v2->u.num);
       return ret;
-    
+
     case T_ARR:
       if (v2->type != T_STR)
         return &val_undef;
@@ -256,7 +256,7 @@ val_t *val_mul (val_t *v1, val_t *v2) {
           str_add_buf(ret->u.str, v2->u.str->buf, v2->u.str->len);
       }
       return ret;
-    
+
     default:
       return &val_undef;
   }
@@ -276,7 +276,7 @@ val_t *val_div (val_t *v1, val_t *v2) {
       if (v2->type != T_REAL)
         return &val_undef;
       return v_real_new_double(v1->u.real / v2->u.real);
-   
+
     default:
       return &val_undef;
   }
@@ -291,7 +291,7 @@ val_t *val_mod (val_t *v1, val_t *v2) {
         return &val_undef;
       ret = v_num_new_int(v1->u.num % v2->u.num);
       return ret;
-    
+
     default:
       return &val_undef;
   }
@@ -303,7 +303,7 @@ val_t *val_neg (val_t *v) {
       return v_num_new_int(-v->u.num);
     case T_REAL:
       return v_real_new_double(-v->u.real);
-    
+
     default:
       return &val_undef;
   }
@@ -391,6 +391,8 @@ int vals_mark (void *_exec) {
   count += val_mark(exec->prog->constants);
   count += val_mark(exec->prog->functions);
   count += val_mark(exec->prog->ops);
+  // Otherwise the input arguments instantly gets removed by the GC
+  count += val_mark(exec->args);
 
   return count;
 }

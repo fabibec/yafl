@@ -172,3 +172,52 @@ NATIVE(SWITCH_LOOKUP) {
   assert(maybe_pc->type == T_NUM);
   return maybe_pc;
 }
+
+/* Input arguments */
+NATIVE(ARGS) {
+  // Push arr to stack
+  return val_copy(exec->args);
+}
+
+/* File IO */
+NATIVE(READ_FILE) {
+  val_t *v_path = ARG(0);
+  if (v_path->type != T_STR) return v_arr_create();
+
+  // Very simple, read whole file at once, create str for every line
+  FILE *f = fopen(v_path->u.str->buf, "r");
+  val_t *lines = v_arr_create();
+  if (!f) return lines;
+
+  char *line = NULL;
+  size_t len = 0;
+  size_t read;
+  while ((read = getline(&line, &len, f)) != -1) {
+    if (read > 0 && line[read - 1] == '\n') line[read - 1] = '\0';
+    arr_push(lines->u.arr, v_str_new_cstr(line));
+  }
+  free(line);
+  fclose(f);
+  return lines;
+}
+
+NATIVE(WRITE_FILE) {
+  val_t *v_path = ARG(0);
+  val_t *v_content = ARG(1);
+  val_t *v_append = ARG(2);
+
+  // Any error will be returned as 0
+  if (v_path->type != T_STR || v_content->type != T_STR) return v_num_new_int(0);
+
+  int append = 0;
+  if (v_append->type != T_UNDEF) {
+    append = val_to_bool(v_append);
+  }
+
+  FILE *f = fopen(v_path->u.str->buf, append ? "a" : "w");
+  if (!f) return v_num_new_int(0);
+
+  int res = fputs(v_content->u.str->buf, f);
+  fclose(f);
+  return v_num_new_int(res != EOF);
+}

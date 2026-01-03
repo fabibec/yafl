@@ -280,17 +280,17 @@ static const char *un_op_str(un_op_t op) {
 static int dot_node_id = 0;
 
 /* Remove characters that can't be visualized */
-void ast_dot_str_escape(char *s) {
-    if (!s) return;
-    char *p = s;
+char *ast_dot_str_escape(const char *s) {
+    if (!s) return NULL;
+    char *ret = strdup(s);
+    char *p = ret;
     while (*p) {
-        if (*p == '"') {
-            *p = '\''; // Replace double quote with single to avoid breaking DOT
-        } else if (*p < 32 || *p > 126) {
-            *p = '?'; // Replace unprintable with ?
+        if (*p < 32 || *p > 126) {
+            *p = '?';
         }
         p++;
     }
+    return ret;
 }
 
 /* Recursive helper to print AST to dot file */
@@ -410,7 +410,10 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
             snprintf(label, sizeof(label), "FLOAT\\n%f", node->data.float_nr.value);
             break;
         case NODE_STR:
-            snprintf(label, sizeof(label), "STR\\n\\\"%s\\\"", node->data.string.value);
+            // Escape special chars in str
+            char *sanitized = ast_dot_str_escape(node->data.string.value);
+            snprintf(label, sizeof(label), "STR\\n\\\"%s\\\"", sanitized);
+            free(sanitized);
             break;
         case NODE_BOOL:
             snprintf(label, sizeof(label), "BOOL\\n%s", node->data.boolean.value ? "true" : "false");
@@ -430,9 +433,6 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
             snprintf(label, sizeof(label), "%s", node_type_str(node->type));
             break;
     }
-
-    // Escape special chars in label
-    ast_dot_str_escape(label);
 
     // Print node
     fprintf(fp, "  node%d [label=\"%s\"];\n", my_id, label);

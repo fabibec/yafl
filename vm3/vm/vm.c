@@ -44,7 +44,7 @@ int main (int argc, char **argv) {
   if (dump) {
     prog_dump(prog);
   } else {
-    exec_t *exec = exec_new(prog);
+    exec_t *exec = exec_new(prog, argc - (optind + 1), (const char **)(argv + optind + 1));
     exec_set_debuglvl(exec, verbose);
     exec_run(exec);
   }

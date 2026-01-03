@@ -362,8 +362,6 @@ func_sym *symtab_lookup_func(symtab *table, const char *name,
 void symtab_dump(symtab *table) {
     printf("--- Symbol Table Dump ---\n");
     printf("Total scopes created: %d\n", table->total_scopes);
-    printf("Current scope depth: %d\n", table->current->level);
-    printf("Current scope var counter: %d\n", table->current->var_count);
 
     printf("\n[Functions]\n");
     char type_buf[128];

@@ -272,6 +272,40 @@ void builtins_range_stop(prog_t *prog, ast_node *node, func_sym *sym, int arg_co
     prog_add_op(prog, MKRANGE);
 }
 
+/* fn args() -> arr'str */
+void builtins_args(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
+    codegen_push_func_arguments(node, sym, arg_count);
+
+    prog_add_num(prog, 0);
+    val_t *func_name = v_str_new_cstr("ARGS");
+    int const_id = prog_new_constant(prog, func_name);
+    prog_add_num(prog, const_id);
+    prog_add_op(prog, CONSTANT);
+    prog_add_op(prog, CALL);
+}
+
+/* fn read(str: |file path|) -> arr'str */
+void builtins_read(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
+    codegen_push_func_arguments(node, sym, arg_count);
+    prog_add_num(prog, 1);
+    val_t *func_name = v_str_new_cstr("READ_FILE");
+    int const_id = prog_new_constant(prog, func_name);
+    prog_add_num(prog, const_id);
+    prog_add_op(prog, CONSTANT);
+    prog_add_op(prog, CALL);
+}
+
+/* fn write(str: |file path|, str: |content|, bool: |append| <- No) -> bool */
+void builtins_write(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
+    codegen_push_func_arguments(node, sym, arg_count);
+    prog_add_num(prog, 3);
+    val_t *func_name = v_str_new_cstr("WRITE_FILE");
+    int const_id = prog_new_constant(prog, func_name);
+    prog_add_num(prog, const_id);
+    prog_add_op(prog, CONSTANT);
+    prog_add_op(prog, CALL);
+}
+
 void builtins_register(symtab *s) {
     // print<ln>(any) -> none
     yafl_t *none_t = type_new_simple(TYPE_VOID);
@@ -281,9 +315,24 @@ void builtins_register(symtab *s) {
     symtab_add_builtin(s, "print", none_t, 1, print_args, NULL, builtins_print);
     symtab_add_builtin(s, "println", none_t, 1, print_args, NULL, builtins_println);
 
+    // args() -> arr'str
+    yafl_t *arr_str_t = type_new_composite(type_new_simple(TYPE_STR));
+    symtab_add_builtin(s, "args", arr_str_t, 0, NULL, NULL, builtins_args);
+
+    // read(path) -> arr'str
+    yafl_t *str_t = type_new_simple(TYPE_STR);
+    yafl_t *read_args[] = {str_t};
+    symtab_add_builtin(s, "read", arr_str_t, 1, read_args, NULL, builtins_read);
+
+    // write (path, content, append) -> bool
+    yafl_t *bool_t = type_new_simple(TYPE_BOOL);
+    yafl_t *write_args[] = {str_t, str_t, bool_t};
+    ast_node *append_default = ast_new_bool(0);
+    ast_node *write_defaults[] = {NULL, NULL, append_default};
+    symtab_add_builtin(s, "write", bool_t, 3, write_args, write_defaults, builtins_write);
+
     // input_<str|int>(any) -> <str|int>
     yafl_t *int_t = type_new_simple(TYPE_SINT);
-    yafl_t *str_t = type_new_simple(TYPE_STR);
     symtab_add_builtin(s, "input_int", int_t, 1, print_args, NULL, builtins_input_int);
     symtab_add_builtin(s, "input_str", str_t, 1, print_args, NULL, builtins_input_str);
 
@@ -306,11 +355,8 @@ void builtins_register(symtab *s) {
     symtab_add_builtin(s, "range", range_t, 3, range_args, range_defaults, builtins_range);
     symtab_add_builtin(s, "range", range_t, 1, range_args_stop, NULL, builtins_range_stop);
 
-    type_free(range_t);
-
     // Casting
     yafl_t *float_t = type_new_simple(TYPE_FLOAT);
-    yafl_t *bool_t = type_new_simple(TYPE_BOOL);
 
     // to_int(...)
     yafl_t *arg_float[] = {float_t};
@@ -343,5 +389,7 @@ void builtins_register(symtab *s) {
     type_free(str_t);
     type_free(none_t);
     type_free(any_t);
+    type_free(arr_str_t);
+    type_free(range_t);
 }
 

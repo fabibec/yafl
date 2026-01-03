@@ -1,5 +1,5 @@
-int |WIDTH| <- 40;
-int |HEIGHT| <- 20;
+int |WIDTH| <- 60;
+int |HEIGHT| <- 40;
 str |ALIVE| <- >>#<<;
 str |DEAD| <- >> <<;
 

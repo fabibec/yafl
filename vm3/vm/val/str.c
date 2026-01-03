@@ -14,7 +14,7 @@ str_t *str_create (void) {
   return s;
 }
 
-str_t *str_add_buf (str_t *str, char *buf, int len) {
+str_t *str_add_buf (str_t *str, const char *buf, int len) {
   str->buf = realloc(str->buf, str->len + len + 1);
   memcpy(str->buf + str->len, buf, len);
   str->len += len;
@@ -23,16 +23,16 @@ str_t *str_add_buf (str_t *str, char *buf, int len) {
   return str;
 }
 
-str_t *str_add_cstr (str_t *str, char *s) {
+str_t *str_add_cstr (str_t *str, const char *s) {
   return str_add_buf(str, s, strlen(s));
 }
 
-str_t *str_new_buf (char *buf, int len) {
+str_t *str_new_buf (const char *buf, int len) {
   str_t *s = str_create();
   return str_add_buf(s, buf, len);
 }
 
-str_t *str_new_cstr (char *cstr) {
+str_t *str_new_cstr (const char *cstr) {
   return str_new_buf(cstr, strlen(cstr));
 }
 
@@ -91,13 +91,13 @@ val_t *v_str_create (void) {
   return v;
 }
 
-val_t *v_str_new_cstr (char *cstr) {
+val_t *v_str_new_cstr (const char *cstr) {
   val_t *v = val_new(T_STR);
   v->u.str = str_new_cstr(cstr);
   return v;
 }
 
-val_t *v_str_new_buf (char *buf, int len) {
+val_t *v_str_new_buf (const char *buf, int len) {
   val_t *v = val_new(T_STR);
   v->u.str = str_new_buf(buf, len);
   return v;

@@ -298,7 +298,9 @@ void codegen_expr(ast_node *node) {
             break;
 
         case NODE_STR: {
+            printf("Codegen before: %s\n", node->data.string.value);
             val_t *str = v_str_new_cstr(node->data.string.value);
+            printf("Codegen after: %s\n", str->u.str->buf);
             int const_id = prog_new_constant(prog, str);
             prog_add_num(prog, const_id);
             prog_add_op(prog, CONSTANT);

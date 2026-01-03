@@ -140,7 +140,7 @@ void prog_register_function (prog_t *prog, char *name, int pc) {
   map_set(prog->functions->u.map, v_str_new_cstr(name), v_num_new_int(pc));
 }
 
-exec_t *exec_new (prog_t *prog) {
+exec_t *exec_new (prog_t *prog, int argc, const char **argv) {
 
   exec_t *exec = malloc (sizeof *exec);
   exec->prog = prog;
@@ -155,6 +155,14 @@ exec_t *exec_new (prog_t *prog) {
   exec->global_vars = v_arr_create();
   exec->pc = 0;
   exec->debuglvl = E_WARN;
+
+  /* Input arguments */
+  val_t *input_args = v_arr_create();
+  for (int i = 0; i < argc; i++) {
+    val_t *arg = v_str_new_cstr(argv[i]);
+    arr_push(input_args->u.arr, arg);
+  }
+  exec->args = input_args;
 
   return exec;
 }
@@ -419,8 +427,6 @@ OPCODE(copy) {
   val_t *v = POP;
   PUSH(val_copy(v));
 }
-
-
 
 OPCODE(discard) {
   MINARGS(1);

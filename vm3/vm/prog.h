@@ -37,6 +37,8 @@ struct exec {
   vstack_t *vstack;
   vstack_t *vars;
   val_t    *global_vars;
+  /* Input arguments */
+  val_t    *args;
   int debuglvl;
 
   int pc;
@@ -74,7 +76,7 @@ val_t  *call_native (exec_t *, char *id, val_t *args);
 prog_t *prog_read (char *filename);
 int prog_write(prog_t *p, char *filename);
 
-exec_t *exec_new  (prog_t *prog);
+exec_t *exec_new  (prog_t *prog, int argc, const char **argv);
 int     exec_step (exec_t *exec);
 void    exec_run  (exec_t *exec);
 void    exec_set_debuglvl (exec_t *exec, int lvl);

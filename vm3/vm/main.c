@@ -18,7 +18,7 @@ int main (void) {
 
 	prog_set_num(p, brkjmp, brktgt);
 
-	exec_t *e = exec_new(p);
+	exec_t *e = exec_new(p, 0, NULL);
 	exec_run(e);
 
 

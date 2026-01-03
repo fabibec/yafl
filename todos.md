@@ -7,6 +7,8 @@
 - [x] scoping with blocks <br>
 - [x] some char-like construct <br>
 - [x] switch statement <br>
+- [x] argc/argv support <br>
+- [x] simple files <br>
 - [ ] full static type checking <br>
 - [ ] basic optimization <br>
 - [ ] cli for yaflc and yafl
