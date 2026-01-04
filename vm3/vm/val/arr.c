@@ -89,7 +89,8 @@ int arr_len (arr_t *a) {
 arr_t *arr_copy (arr_t *a) {
   arr_t *r = arr_new();
   for (int i = 0; i < a->size; i++) {
-    arr_set(r, i, a->vals[i]);
+    /* Deep Copy for nested arrays */
+    arr_set(r, i, val_copy(a->vals[i]));
   }
 
   return r;

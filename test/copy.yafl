@@ -1,0 +1,31 @@
+fn start() -> int {
+    arr'int |a| <- [1, 2, 3];
+    arr'int |b| <- copy(|a|);
+
+    |b|[0] <- 42;
+
+    println(>>Original a[0]: << + to_str(|a|[0]));
+    println(>>Copy b[0]: << + to_str(|b|[0]));
+
+    if (|a|[0] = 1) {
+        println(>>Deep copy works for 1D array!<<);
+    } else {
+        println(>>Deep copy failed for 1D array!<<);
+    }
+
+    ~~ Multidimensional array test
+    arr'arr'int |aa| <- [[1, 2], [3, 4]];
+    arr'arr'int |bb| <- copy(|aa|);
+
+    |bb|[0][0] <- 99;
+
+    println(>>Original aa[0][0]: << + to_str(|aa|[0][0]));
+    println(>>Copy bb[0][0]: << + to_str(|bb|[0][0]));
+
+    if (|aa|[0][0] = 1) {
+        println(>>Deep copy works for 2D array!<<);
+    } else {
+        println(>>Deep copy failed for 2D array!<<);
+    }
+    ret 0;
+}

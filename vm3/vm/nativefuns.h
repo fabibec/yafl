@@ -3,6 +3,8 @@ val_t *native_SWITCH_LOOKUP (exec_t *exec, val_t *args);
 val_t *native_ARGS (exec_t *exec, val_t *args);
 val_t *native_READ_FILE (exec_t *exec, val_t *args);
 val_t *native_WRITE_FILE (exec_t *exec, val_t *args);
+val_t *native_CONTAINS (exec_t *exec, val_t *args);
+val_t *native_SLICE (exec_t *exec, val_t *args);
 val_t *native_getint (exec_t *exec, val_t *args);
 val_t *native_random (exec_t *exec, val_t *args);
 val_t *native_getstring (exec_t *exec, val_t *args);
@@ -18,6 +20,10 @@ val_t *call_native (exec_t *exec, char *id, val_t *args) {
      return native_READ_FILE(exec, args);
   } else if (strcmp(id, "WRITE_FILE") == 0) {
      return native_WRITE_FILE(exec, args);
+  } else if (strcmp(id, "CONTAINS") == 0) {
+     return native_CONTAINS(exec, args);
+  } else if (strcmp(id, "SLICE") == 0) {
+     return native_SLICE(exec, args);
   } else if (strcmp(id, "getint") == 0) {
      return native_getint(exec, args);
   } else if (strcmp(id, "random") == 0) {
@@ -39,6 +45,10 @@ int native_exists (char *id) {
   } else if (strcmp(id, "READ_FILE") == 0) {
      return 1;
   } else if (strcmp(id, "WRITE_FILE") == 0) {
+     return 1;
+  } else if (strcmp(id, "CONTAINS") == 0) {
+     return 1;
+  } else if (strcmp(id, "SLICE") == 0) {
      return 1;
   } else if (strcmp(id, "getint") == 0) {
      return 1;

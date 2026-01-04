@@ -27,7 +27,7 @@ val_t *v_num_copy (val_t *v) {
   val_t *v2 = val_new(T_NUM);
   v2->u.num = v->u.num;
 
-  return v;
+  return v2;
 }
 
 int v_num_cmp (val_t *v1, val_t *v2) {
@@ -65,14 +65,13 @@ val_t *v_num_conv (val_t *v) {
  char *ptr;
  switch (v->type) {
    case T_STR:
+     if (v->u.str->len == 1) {
+       return v_num_new_int((unsigned char)v->u.str->buf[0]);
+     }
      ptr = v->u.str->buf;
      int nr;
      int ok = parse_yafl_int(ptr, &nr);
      if (!ok) {
-       /* Interpret single char string as their ascii value */
-       if (v->u.str->len == 1) {
-         return v_num_new_int((unsigned char)v->u.str->buf[0]);
-       }
        return &val_undef;
      }
      return v_num_new_int(nr);

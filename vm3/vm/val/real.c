@@ -77,14 +77,13 @@ val_t *v_real_conv (val_t *v) {
  char *ptr;
  switch (v->type) {
    case T_STR:
+     if (v->u.str->len == 1) {
+       return v_real_new_double((double)(unsigned char)v->u.str->buf[0]);
+     }
      ptr = v->u.str->buf;
      /* Changed this part */
      double nr = parse_yafl_float(ptr);
      if(isnan(nr)){
-       /* Interpret single char string as their ascii value */
-       if (v->u.str->len == 1) {
-         return v_real_new_double((double)(unsigned char)v->u.str->buf[0]);
-       }
       return &val_undef;
      }
      return v_real_new_double(nr);

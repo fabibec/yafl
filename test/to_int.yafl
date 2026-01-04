@@ -1,0 +1,6 @@
+fn start() -> int {
+    println(>>to_int('0'): << + to_str(to_int(>>0<<))); ~~ Should be 48
+    println(>>to_int('a'): << + to_str(to_int(>>a<<))); ~~ Should be 97
+    println(>>to_int('10'): << + to_str(to_int(>>10<<))); ~~ Should be 10
+    ret 0;
+}

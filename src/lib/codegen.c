@@ -122,6 +122,9 @@ yafl_t* get_expr_type(ast_node *node) {
                 yafl_t *ret = type_clone(base_type->comp_t);
                 type_free(base_type);
                 return ret;
+            } else if (base_type && base_type->base_t == TYPE_STR) {
+                type_free(base_type);
+                return type_new_simple(TYPE_STR);
             }
             type_free(base_type);
             return NULL;
@@ -298,9 +301,7 @@ void codegen_expr(ast_node *node) {
             break;
 
         case NODE_STR: {
-            printf("Codegen before: %s\n", node->data.string.value);
             val_t *str = v_str_new_cstr(node->data.string.value);
-            printf("Codegen after: %s\n", str->u.str->buf);
             int const_id = prog_new_constant(prog, str);
             prog_add_num(prog, const_id);
             prog_add_op(prog, CONSTANT);

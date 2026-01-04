@@ -1,0 +1,21 @@
+fn start() -> int {
+    arr'int |a| <- [0, 1, 2, 3, 4, 5];
+
+    arr'int |s1| <- slice(|a|, 1, 4); ~~ [1, 2, 3]
+    ~~println(>>s1: << + to_str(|s1|));
+
+    arr'int |s2| <- slice(|a|, 2, 6); ~~ [2, 3, 4, 5]
+    ~~println(>>s2: << + to_str(|s2|));
+
+    arr'int |s3| <- slice(|a|, -2, 6); ~~ [4, 5] (start=4, end=6)
+    ~~println(>>s3: << + to_str(|s3|));
+
+    str |st| <- >>Hello World<<;
+    str |ss1| <- slice(|st|, 0, 5); ~~ Hello
+    println(>>ss1: << + |ss1|);
+
+    str |ss2| <- slice(|st|, 6, 11); ~~ World
+    println(>>ss2: << + |ss2|);
+
+    ret 0;
+}

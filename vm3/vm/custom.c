@@ -221,3 +221,64 @@ NATIVE(WRITE_FILE) {
   fclose(f);
   return v_num_new_int(res != EOF);
 }
+
+NATIVE(CONTAINS) {
+  val_t *v_haystack = ARG(0);
+  val_t *v_needle = ARG(1);
+  assert(v_needle->type == T_STR && v_haystack->type == T_STR);
+  char *haystack = v_haystack->u.str->buf;
+  char *needle = v_needle->u.str->buf;
+
+  int ret = -1;
+  for (int i = 0; haystack[i]; i++) {
+    int j = 0;
+    while (needle[j] && haystack[i + j] == needle[j]) j++;
+    if (!needle[j]){
+      ret = i;
+      break;
+    }
+  }
+  return v_num_new_int(ret);
+}
+
+NATIVE(SLICE) {
+  val_t *v = ARG(0);
+  val_t *v_start = ARG(1);
+  val_t *v_end = ARG(2);
+
+  assert(v->type == T_ARR || v->type == T_STR);
+  assert(v_start->type == T_NUM && v_end->type == T_NUM);
+
+  int start = v_start->u.num;
+  int end = v_end->u.num;
+  int len = 0;
+
+  if (v->type == T_ARR) {
+    len = arr_len(v->u.arr);
+  } else {
+    len = v->u.str->len;
+  }
+
+  // Allow negative indexing (start from the back)
+  if (start < 0) start += len;
+  if (end < 0) end += len;
+
+  // Still out of bound? Clip
+  if (start < 0) start = 0;
+  if (end > len) end = len;
+
+  if (start > end) start = end;
+
+  int new_len = end - start;
+
+  if (v->type == T_ARR) {
+    val_t *res = v_arr_create();
+    for (int i = 0; i < new_len; i++) {
+        val_t *el = arr_get(v->u.arr, start + i);
+        arr_push(res->u.arr, val_copy(el));
+    }
+    return res;
+  } else {
+    return v_str_new_buf(v->u.str->buf + start, new_len);
+  }
+}

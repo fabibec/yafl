@@ -9,6 +9,8 @@
 - [x] switch statement <br>
 - [x] argc/argv support <br>
 - [x] simple files <br>
+- [x] arr deepcopy: copy()
+- [x] arr slice: slice()
 - [ ] full static type checking <br>
 - [ ] basic optimization <br>
 - [ ] cli for yaflc and yafl

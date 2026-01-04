@@ -1,18 +1,12 @@
-int |WIDTH| <- 60;
-int |HEIGHT| <- 40;
+int |WIDTH| <- 300;
+int |HEIGHT| <- 300;
 str |ALIVE| <- >>#<<;
 str |DEAD| <- >> <<;
 
 fn start() -> int {
-    ~~ Init dead 2D-array
-    arr'arr'str |grid|[|HEIGHT|];
-    for int |i| in range(0, |HEIGHT|) {
-        |grid|[|i|] <- [|DEAD|] * |WIDTH|;
-    }
-
     clear_screen();
     println(>>Conway's Game of Life in Yafl by Fabian Becker<<);
-    init_random(|grid|);
+    arr'arr'str |grid| <- init_field();
 
     sleep(2_000);
 
@@ -23,6 +17,107 @@ fn start() -> int {
         sleep(10);
     }
     ret 0;
+}
+
+fn is_digit(str: |chr|) -> bool {
+    if(len(|chr|) ~= 1){ ret No;}
+    int |ascii val| <- to_int(|chr|);
+    if(|ascii val| >= to_int(>>0<<) and |ascii val| <= to_int(>>9<<)){ ret Yes; }
+    ret No;
+}
+
+fn parse_int_after(str: |line|, str: |substring|) -> int{
+    int |idx| <- contains(|line|,|substring|);
+    if(|idx| = -1) {ret -1; }
+
+    |idx| <- |idx| + len(|substring|);
+    while (|line|[|idx|] = >> <<){ |idx|++; }
+
+    int |val|;
+    while (is_digit(|line|[|idx|])) {
+        |val| <- |val| * 10 + (to_int(|line|[|idx|]) - to_int(>>0<<));
+        |idx|++;
+    }
+
+    ret |val|;
+}
+
+fn init_field() -> arr'arr'str {
+    arr'str |input args| <- args();
+    arr'str |file content|;
+    arr'arr'str |grid|;
+
+    if (len(|input args|) = 1){
+        |file content| <- read(|input args|[0]);
+        if (len(|file content|) = 0){
+            println(>>Error: Unable to read file: << + |input args|[0]);
+            exit();
+        }
+
+        ~~ Parse grid size
+        str |first line| <- slice(|file content|, 1, 2)[0];
+        int |WIDTH| <- parse_int_after(|first line|, >>x = <<);
+        int |HEIGHT| <- parse_int_after(|first line|, >>y = <<);
+
+        |grid| <- init_dead_arr();
+        println(>>Grid size: << + to_str(|WIDTH|) + >> x << + to_str(|HEIGHT|));
+
+        ~~ Parse pattern
+        int |x|;
+        int |y|;
+        int |cnt|;
+        for str |line| in slice(|file content|, 2) {
+            for str |char| in |line| {
+                match(|char|) {
+                    case >>o<< -> {
+                        ~~ live cell
+                        if(|cnt| = 0){ |cnt| <- 1; }
+                        for int |i| in range (|cnt|) {
+                            |grid|[|y|][|x|] <- |ALIVE|;
+                            |x|++;
+                        }
+                        |cnt| <- 0;
+                    }
+                    case >>b<< -> {
+                        ~~ dead cell - skip points
+                        if(|cnt| = 0){ |cnt| <- 1; }
+                        |x| <- |x| + |cnt|;
+                        |cnt| <- 0;
+                    }
+                    case >>$<< -> {
+                        ~~ skip rows
+                        if(|cnt| = 0){ |cnt| <- 1; }
+                        |y| <- |y| + |cnt|;
+                        |x| <- 0;
+                        |cnt| <- 0;
+                    }
+                    case >>!<< -> {
+                        stop;
+                    }
+                    otherwise -> {
+                        if(is_digit(|char|)) {
+                            |cnt| <- |cnt| * 10 + (to_int(|char|) - to_int(>>0<<));
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        println(>>x = << + to_str(|WIDTH|) + >>, y = << + to_str(|HEIGHT|));
+        println(>>No pattern file provided, creating random field!<<);
+        |grid| <- init_dead_arr();
+        init_random(|grid|);
+    }
+    ret |grid|;
+}
+
+~~ Init dead 2D-array
+fn init_dead_arr() -> arr'arr'str {
+    arr'arr'str |grid|[|HEIGHT|];
+    for int |i| in range(0, |HEIGHT|) {
+        |grid|[|i|] <- [|DEAD|] * |WIDTH|;
+    }
+    ret |grid|;
 }
 
 fn clear_screen() -> none {
@@ -80,12 +175,14 @@ fn update(arr'arr'str: |grid|) -> none {
 }
 
 fn print_grid(arr'arr'str: |grid|) -> none {
+    str |out|;
     for int |y| in range(0, |HEIGHT|) {
         for int |x| in range(0, |WIDTH|) {
-            print(|grid|[|y|][|x|]);
+            |out| <- |out| + |grid|[|y|][|x|];
         }
-        println(>><<);
+        |out| <- |out| + >>^n<<;
     }
+    print(|out|);
 }
 
 fn init_random(arr'arr'str: |grid|) -> none {

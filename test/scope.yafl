@@ -1,12 +1,12 @@
 fn start() -> int {
-    int |a| <- 100;
+    float |a| <- 100.0;
     println(|a|);
 
     {
-        int |a| <- 200;
+        float |a| <- 200.0;
         println(|a|);
         {
-            int |a| <- 300;
+            str |a| <- >>Test<<;
             println(|a|);
         }
         println(|a|);

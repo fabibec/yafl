@@ -125,6 +125,51 @@ void builtins_rng_max(prog_t *prog, ast_node *node, func_sym *sym, int arg_count
     prog_add_op(prog, CALL);
 }
 
+/* fn len(arr'any: |arr|) -> int */
+void builtins_len_arr(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
+    codegen_push_func_arguments(node, sym, arg_count);
+    prog_add_op(prog, LEN);
+}
+
+/* fn len(str: |str|) -> int */
+void builtins_len_str(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
+    codegen_push_func_arguments(node, sym, arg_count);
+    prog_add_op(prog, LEN);
+}
+
+/* fn contains(str: |haystack|, str: |needle|) -> bool */
+void builtins_contains(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
+    codegen_push_func_arguments(node, sym, arg_count);
+    prog_add_num(prog, arg_count);
+    val_t *func_name = v_str_new_cstr("CONTAINS");
+    int const_id = prog_new_constant(prog, func_name);
+    prog_add_num(prog, const_id);
+    prog_add_op(prog, CONSTANT);
+    prog_add_op(prog, CALL);
+}
+
+/* fn copy(arr'any: |src|) -> arr'any */
+void builtins_copy(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
+    codegen_push_func_arguments(node, sym, arg_count);
+    prog_add_op(prog, COPY);
+}
+
+/* fn slice(arr'any: |arr|, int: |start|, int: |end| <- 2147483647) -> arr'any */
+void builtins_slice(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
+    codegen_push_func_arguments(node, sym, arg_count);
+    prog_add_num(prog, 3);
+    val_t *func_name = v_str_new_cstr("SLICE");
+    int const_id = prog_new_constant(prog, func_name);
+    prog_add_num(prog, const_id);
+    prog_add_op(prog, CONSTANT);
+    prog_add_op(prog, CALL);
+}
+
+/* fn exit() -> none */
+void builtins_exit(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
+    prog_add_op(prog, HALT);
+}
+
 /* --- Casting --- */
 void builtins_to_int(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
     codegen_push_func_arguments(node, sym, arg_count);
@@ -345,6 +390,37 @@ void builtins_register(symtab *s) {
     symtab_add_builtin(s, "rng", int_t, 2, rng_args, NULL, builtins_rng);
     symtab_add_builtin(s, "rng", int_t, 1, sleep_args, NULL, builtins_rng_max);
 
+    // len(...) -> int
+    yafl_t *arr_any_t = type_new_composite(type_new_simple(TYPE_GENERIC));
+    yafl_t *len_arr_args[] = {arr_any_t};
+    yafl_t *len_str_args[] = {str_t};
+    symtab_add_builtin(s, "len", int_t, 1, len_arr_args, NULL, builtins_len_arr);
+    symtab_add_builtin(s, "len", int_t, 1, len_str_args, NULL, builtins_len_str);
+
+    // copy(...) -> arr'any
+    symtab_add_builtin(s, "copy", arr_any_t, 1, len_arr_args, NULL, builtins_copy);
+
+    // slice(...) -> arr'any | str
+    yafl_t *slice_args[] = {arr_any_t, int_t, int_t};
+    yafl_t *slice_str_args[] = {str_t, int_t, int_t};
+    ast_node *slice_start_def = ast_new_int(0);
+    ast_node *slice_end_def = ast_new_int(INT_MAX);
+    ast_node *slice_defaults[] = {NULL, slice_start_def, slice_end_def};
+
+    symtab_add_builtin(s, "slice", arr_any_t, 3, slice_args, slice_defaults, builtins_slice);
+
+    ast_node *slice_start_def2 = ast_new_int(0);
+    ast_node *slice_end_def2 = ast_new_int(INT_MAX);
+    ast_node *slice_defaults2[] = {NULL, slice_start_def2, slice_end_def2};
+    symtab_add_builtin(s, "slice", str_t, 3, slice_str_args, slice_defaults2, builtins_slice);
+
+    // contains(...) -> int
+    yafl_t *contains_args[] = {str_t, str_t};
+    symtab_add_builtin(s, "contains", int_t, 2, contains_args, NULL, builtins_contains);
+
+    // exit() -> none
+    symtab_add_builtin(s, "exit", none_t, 0, NULL, NULL, builtins_exit);
+
     // range(...) -> range'int
     yafl_t *range_args[] = {int_t, int_t, int_t};
     yafl_t *range_args_stop[] = {int_t};
@@ -390,6 +466,7 @@ void builtins_register(symtab *s) {
     type_free(none_t);
     type_free(any_t);
     type_free(arr_str_t);
+    type_free(arr_any_t);
     type_free(range_t);
 }
 
