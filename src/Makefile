@@ -17,7 +17,8 @@ COMMON_OBJS = \
 	$(BUILD)/hashmap.o \
 	$(BUILD)/types.o \
 	$(BUILD)/loop_stack.o \
-	$(BUILD)/vector.o
+	$(BUILD)/vector.o \
+	$(BUILD)/logger.o
 
 YAFL_OBJS = $(BUILD)/yafl.o
 YAFLC_OBJS = $(BUILD)/yaflc.o

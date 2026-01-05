@@ -9,12 +9,13 @@
     #include <stdint.h>
     #include <inttypes.h>
     #include "ast.h"
+    #include "logger.h"
 
     extern int yylineno;
 
     int yylex();
     void yyerror(const char *msg){
-        fprintf(stderr, "Error in line %d: %s\n", yylineno, msg);
+        log_error(yylineno, msg);
     }
 
     /* Global AST Root */
@@ -206,6 +207,9 @@ assignment_stmt:
 return_stmt:
     KW_RET expr ';' {
         $$ = ast_new_ret($2);
+    }
+    | KW_RET ';' {
+        $$ = ast_new_ret(NULL);
     }
     ;
 

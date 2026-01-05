@@ -1,5 +1,6 @@
 #include "loop_stack.h"
 #include "codegen.h"
+#include "logger.h"
 #include <stdbool.h>
 
 loop_ctx *loop_stack = NULL;
@@ -15,7 +16,7 @@ void loop_push(int continue_pc, bool has_iterator) {
 
 void loop_add_break_jump(int pc_loc) {
     if (!loop_stack) {
-        codegen_error(0, "Break statement outside of loop");
+        log_error(0, "Break statement outside of loop");
     }
     jmp_lst *j = malloc(sizeof(jmp_lst));
     j->pc_loc = pc_loc;

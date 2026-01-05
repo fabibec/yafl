@@ -1,0 +1,19 @@
+fn start() -> none {
+        ~~ int |x| <- >>hello<<;   ~~ Error: Assign string to int
+        ~~ bool |b| <- 10;         ~~ Error: Assign int to bool
+
+    ~~ if (10) {               ~~ Error: Condition must be bool
+    ~~    print(>>bad<<);
+    ~~ }
+
+    ~~ ret 10;                 ~~ Error: void function returning int
+}
+
+fn sum_func(int: |a|, int: |b|) -> int {
+    ~~ret 0; ~~ >>string<<;         ~~ Error: return string instead of int
+}
+
+fn test_arrays() -> none {
+    arr'int |x| <- [1, 2, 3]; ~~ >>3<<]; ~~ Error: Mixed types in array literal
+    |x|[0] <- >>str<<;            ~~ Error: Assign string to int array element
+}

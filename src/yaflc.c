@@ -1,38 +1,81 @@
 #include <stdio.h>
+#include <string.h>
+#include <getopt.h>
+#include <stdlib.h>
 #include "ast.h"
 #include "codegen.h"
 #include "stringbuf.h"
+#include "logger.h"
 
 extern ast_node *root;
 extern int yyparse();
 extern int yylex_destroy();
 extern FILE *yyin;
 
+static void usage(const char *prog) {
+    fprintf(stderr, "Usage: %s [options] <input_file>\n", prog);
+    fprintf(stderr, "Options:\n");
+    fprintf(stderr, "  -v, --verbose    Enable debug output\n");
+    fprintf(stderr, "  -q, --quiet      Only show warnings and errors\n");
+    fprintf(stderr, "  -o, --output     Specify output filename (default: code.yaflb)\n");
+    fprintf(stderr, "  -h, --help       Show this help\n");
+}
+
 int main(int argc, char **argv) {
-    if (argc > 1) {
-        yyin = fopen(argv[1], "r");
-        if (!yyin) {
-            fprintf(stderr, "Error: Cannot open file %s\n", argv[1]);
-            return 1;
+    LogLevel level = LOG_INFO;
+    char *input_file = NULL;
+    char *output_file = "code.yaflb";
+
+    static struct option long_options[] = {
+        {"verbose", no_argument,       0, 'v'},
+        {"quiet",   no_argument,       0, 'q'},
+        {"output",  required_argument, 0, 'o'},
+        {"help",    no_argument,       0, 'h'},
+        {0, 0, 0, 0}
+    };
+
+    int opt;
+    while ((opt = getopt_long(argc, argv, "vqo:h", long_options, NULL)) != -1) {
+        switch (opt) {
+            case 'v': level = LOG_DEBUG; break;
+            case 'q': level = LOG_WARN; break;
+            case 'o': output_file = optarg; break;
+            case 'h': usage(argv[0]); return 0;
+            default: usage(argv[0]); return 1;
         }
     }
 
-    printf("Parsing...\n");
+    if (optind < argc) {
+        input_file = argv[optind];
+    }
+
+    logger_init(input_file ? input_file : "<stdin>");
+    logger_set_level(level);
+
+    if (input_file) {
+        yyin = fopen(input_file, "r");
+        if (!yyin) {
+            log_error(0, "Cannot open input file: %s", input_file);
+        }
+    }
+
+    log_info(-1, "Parsing...");
     int result = yyparse();
     int ret_code = 0;
 
     if (result == 0 && root) {
-        printf("Parse successful!\n");
-        ast_print_dot(root, "ast.dot");
-        codegen(root, "code.yaflb");
+        log_info(-1, "Parse successful!");
+        // ast_print_dot(root, "ast.dot");
+        codegen(root, output_file);
         ast_free(root);
     } else {
+        // yyerror usually exits, but if we get here:
         fprintf(stderr, "Parse failed!\n");
         ret_code = 1;
     }
 
     // Free everything
-    fclose(yyin);
+    if (input_file && yyin) fclose(yyin);
     strb_free();
     yylex_destroy();
 

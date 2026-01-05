@@ -16,6 +16,7 @@ HEX_DIGIT [0-9A-Fa-f]
 
 BASE [0-9]+
 DEC_NUM (0|[1-9][0-9_]*)
+DEC_PART [0-9][0-9_]*
 HEX_NUM (0|[1-9A-Fa-f][0-9A-Fa-f_]*)
 EXPONENT [+-]?[0-9]+
 
@@ -169,7 +170,7 @@ IGNORE [ \t\n]+
     yylval.fl_nr = v;
     return L_FLOAT;
 }
-{HEX_NUM}("."{HEX_NUM})?("^"{EXPONENT})? {
+{DEC_NUM}("."{DEC_PART})?("^"{EXPONENT})? {
     /* Decimal float with error handling */
     double v = parse_based_float(10, yytext);
     if(isnan(v)){

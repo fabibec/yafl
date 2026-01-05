@@ -1,0 +1,4 @@
+fn start() -> none {
+    ret;
+    bad_syntax here;
+}

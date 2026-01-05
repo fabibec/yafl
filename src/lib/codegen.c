@@ -4,6 +4,7 @@
 #include "prog.h"
 #include "utils.h"
 #include "vector.h"
+#include "logger.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,11 +15,11 @@
 prog_t *prog = NULL;
 symtab *prog_symtab = NULL;
 int temp_var_counter = 0;
+yafl_t *current_func_ret_type = NULL;
 
 /* Forward declarations */
 static void codegen_stmt(ast_node *node);
 void codegen_expr(ast_node *node);
-void codegen_error(int line, const char *fmt, ...);
 
 /* Convert AST param list to type array */
 static yafl_t **extract_params(ast_node *params, int *count) {
@@ -59,36 +60,76 @@ yafl_t* get_expr_type(ast_node *node) {
             return type_new_simple(TYPE_BOOL);
         case NODE_STR:
             return type_new_simple(TYPE_STR);
-        case NODE_VAR: {
-            var_sym *sym = symtab_lookup_var(prog_symtab, node->data.var.name);
-            return sym ? type_clone(sym->type) : NULL;
-        }
-        case NODE_BINARY: {
+        case NODE_VAR:
+            var_sym *var = symtab_lookup_var(prog_symtab, node->data.var.name);
+            if (!var) {
+                log_error(node->line, "Variable '%s' not declared", node->data.var.name);
+            }
+            return type_clone(var->type);
+
+        case NODE_BINARY:
             yafl_t *left = get_expr_type(node->data.binary.left);
             yafl_t *right = get_expr_type(node->data.binary.right);
             yafl_t *res = NULL;
 
-            if (node->data.binary.op == OP_ADD) {
-                if ((left && left->base_t == TYPE_STR) || (right && right->base_t == TYPE_STR)) {
-                    res = type_new_simple(TYPE_STR);
-                } else {
+            if (!left || !right) {
+                if (left) type_free(left);
+                if (right) type_free(right);
+                return NULL;
+            }
+
+            switch (node->data.binary.op){
+                case OP_ADD:
+                    if (left->base_t == TYPE_STR && right->base_t == TYPE_STR) {
+                        res = type_new_simple(TYPE_STR);
+                    } else if (left->base_t == TYPE_FLOAT && right->base_t == TYPE_FLOAT) {
+                        res = type_new_simple(TYPE_FLOAT);
+                    } else {
+                        if (left->base_t != TYPE_SINT && left->base_t != TYPE_UINT)
+                            log_error(node->line, "Invalid left operand for ADD (expected int/float/str)");
+                        if (right->base_t != TYPE_SINT && right->base_t != TYPE_UINT)
+                            log_error(node->line, "Invalid right operand for ADD (expected int/float/str)");
+                        res = type_new_simple(TYPE_SINT);
+                    }
+                    break;
+                case OP_SUB:
+                case OP_MUL:
+                case OP_DIV:
+                case OP_MOD:
+                    if (left->base_t == TYPE_FLOAT || right->base_t == TYPE_FLOAT) {
+                        res = type_new_simple(TYPE_FLOAT);
+                    } else {
+                        if ((left->base_t != TYPE_SINT && left->base_t != TYPE_UINT) ||
+                            (right->base_t != TYPE_SINT && right->base_t != TYPE_UINT)) {
+                            log_error(node->line, "Invalid operands for arithmetic operator");
+                        }
+                        res = type_new_simple(TYPE_SINT);
+                    }
+                    break;
+                case OP_LT:
+                case OP_GT:
+                case OP_LE:
+                case OP_GE:
+                case OP_EQ:
+                case OP_NE:
+                    res = type_new_simple(TYPE_BOOL);
+                    break;
+                case OP_AND:
+                case OP_OR:
+                    if (left->base_t != TYPE_BOOL || right->base_t != TYPE_BOOL) {
+                        log_error(node->line, "Logical operators require boolean operands");
+                    }
+                    res = type_new_simple(TYPE_BOOL);
+                    break;
+                default:
                     res = type_new_simple(TYPE_SINT);
-                }
-            } else if (node->data.binary.op == OP_LT ||
-                node->data.binary.op == OP_GT ||
-                node->data.binary.op == OP_LE ||
-                node->data.binary.op == OP_GE ||
-                node->data.binary.op == OP_EQ ||
-                node->data.binary.op == OP_NE) {
-                res = type_new_simple(TYPE_BOOL);
-            } else {
-                res = type_new_simple(TYPE_SINT);
+                    break;
             }
             type_free(left);
             type_free(right);
             return res;
-        }
-        case NODE_CALL: {
+
+        case NODE_CALL:
             // Need to evaluate arg types to find correct overload
             int arg_count = 0;
             ast_node *args = node->data.call.args;
@@ -103,21 +144,36 @@ yafl_t* get_expr_type(ast_node *node) {
                 }
             }
 
-            func_sym *sym = symtab_lookup_func(prog_symtab, node->data.call.name, arg_types, arg_count);
+            func_sym *fn = symtab_lookup_func(prog_symtab, node->data.call.name, arg_types, arg_count);
             type_list_free(arg_types, arg_count);
 
-            return sym ? type_clone(sym->ret_type) : NULL;
-        }
+            if (!fn) {
+                log_error(node->line, "Function '%s' not declared or no matching overload found",
+                            node->data.call.name);
+            }
 
-        case NODE_UNARY: {
+            return type_clone(fn->ret_type);
+
+        case NODE_UNARY:
             if (node->data.unary.op == OP_NOT) {
+                yafl_t *t = get_expr_type(node->data.unary.operand);
+                if (t && t->base_t != TYPE_BOOL) {
+                    log_error(node->line, "NOT operator requires boolean operand");
+                }
+                type_free(t);
                 return type_new_simple(TYPE_BOOL);
             }
             return get_expr_type(node->data.unary.operand);
-        }
 
-        case NODE_ARR_IDX: {
+        case NODE_ARR_IDX:
             yafl_t *base_type = get_expr_type(node->data.arr_idx.base);
+            yafl_t *idx_type = get_expr_type(node->data.arr_idx.idx);
+
+            if (idx_type && idx_type->base_t != TYPE_SINT && idx_type->base_t != TYPE_UINT) {
+                log_error(node->line, "Array index must be integer");
+            }
+            type_free(idx_type);
+
             if (base_type && base_type->base_t == TYPE_ARR) {
                 yafl_t *ret = type_clone(base_type->comp_t);
                 type_free(base_type);
@@ -127,13 +183,12 @@ yafl_t* get_expr_type(ast_node *node) {
                 return type_new_simple(TYPE_STR);
             }
             type_free(base_type);
+            log_error(node->line, "Indexing non-array/string type");
             return NULL;
-        }
-        case NODE_ARR_LIT: {
-            ast_node *el = node->data.arr_lit.elements;
-            // Empty array literals are not allowed anymore
 
-            // Get first type and check if everything else is equal
+        case NODE_ARR_LIT:
+            ast_node *el = node->data.arr_lit.elements;
+
             yafl_t *first_type = get_expr_type(el);
             if (!first_type) return NULL;
 
@@ -141,46 +196,77 @@ yafl_t* get_expr_type(ast_node *node) {
             while (el) {
                 yafl_t *next_type = get_expr_type(el);
                 if (!type_equals(first_type, next_type)) {
-                    codegen_error(node->line, "Array literal elements must have same type");
+                    log_error(node->line, "Array literal elements must have same type");
                 }
                 type_free(next_type);
                 el = el->next;
             }
             return type_new_composite(first_type);
-        }
-        case NODE_ARR_FILL: {
+
+        case NODE_ARR_FILL:
             yafl_t *val_type = get_expr_type(node->data.arr_fill.elements);
             return type_new_composite(val_type);
-        }
-        case NODE_DEFAULT: {
+        case NODE_DEFAULT:
             return type_clone(node->data.default_val.type);
-        }
-
+        case NODE_CAST:
+            return type_clone(node->data.cast.type);
         default:
             return NULL;
     }
 }
 
-
-/* --- REPORTING --- */
-void codegen_error(int line, const char *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    fprintf(stderr, "Yafl codegen error (line %d): ", line);
-    vfprintf(stderr, fmt, args);
-    fprintf(stderr, "\n");
-    va_end(args);
-    exit(1);
+static void check_types_compatible(yafl_t *expected, yafl_t *actual, int line, const char *context) {
+    if (!expected || !actual) return;
+    if (!type_equals(expected, actual)) {
+        char s_exp[128], s_act[128];
+        type_to_str(expected, s_exp, sizeof(s_exp));
+        type_to_str(actual, s_act, sizeof(s_act));
+        log_error(line, "Type mismatch in %s: expected '%s', got '%s'", context, s_exp, s_act);
+    }
 }
 
-void codegen_warn(int line, const char *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    fprintf(stderr, "Yafl codegen warning (line %d): ", line);
-    vfprintf(stderr, fmt, args);
-    fprintf(stderr, "\n");
-    va_end(args);
-    exit(1);
+/* recursive check if all possible control paths return */
+static bool check_return(ast_node *node) {
+    if (!node) return false;
+
+    switch (node->type){
+        case NODE_RETURN:
+            return true;
+
+        case NODE_BLOCK:
+            for (ast_node *s = node->data.block.stmts; s; s = s->next) {
+                // stop and next make later statements unreachable
+                if (s->type == NODE_STOP || s->type == NODE_NEXT) return false;
+                if (check_return(s)) return true;
+            }
+            return false;
+
+        case NODE_IF:
+            bool then_ret = check_return(node->data.if_stmt.then_block);
+            bool else_ret = node->data.if_stmt.else_block ? check_return(node->data.if_stmt.else_block) : false;
+            return then_ret && else_ret;
+
+        case NODE_MATCH:
+            bool all_cases_ret = true;
+            ast_node *case_node = node->data.match_stmt.cases;
+            while(case_node) {
+                if (case_node->data.case_stmt.body && !check_return(case_node->data.case_stmt.body)) {
+                    // Every block should contain ret statement
+                    all_cases_ret = false;
+                } else if (!case_node->next && !case_node->data.case_stmt.body){
+                    // Last statement is fallthrough
+                    all_cases_ret = false;
+                }
+                case_node = case_node->next;
+            }
+            return all_cases_ret;
+
+        case NODE_WHILE:
+            return check_return(node->data.while_loop.body);
+
+        default:
+            return false;
+    }
 }
 
 /* --- Codegen --- */
@@ -217,7 +303,7 @@ static void codegen_zero_init(yafl_t *type, int line) {
         default: {
             char buf[128];
             type_to_str(type, buf, sizeof(buf));
-            codegen_error(line, "Zero-init on type '%s' is not implemented", buf);
+            log_error(line, "Zero-init on type '%s' is not implemented", buf);
             break;
         }
     }
@@ -226,7 +312,7 @@ static void codegen_zero_init(yafl_t *type, int line) {
 static var_sym *codegen_register_var(char *name, yafl_t *type, int line){
     var_sym *sym = symtab_add_var(prog_symtab, name, type);
     if (!sym) {
-        codegen_error(line, "Variable '%s' already declared", name);
+        log_error(line, "Variable '%s' already declared", name);
     }
     return sym;
 }
@@ -234,7 +320,7 @@ static var_sym *codegen_register_var(char *name, yafl_t *type, int line){
 static var_sym *codegen_lookup_var(char *name, int line){
     var_sym *sym = symtab_lookup_var(prog_symtab, name);
     if (!sym) {
-        codegen_error(line, "Variable '%s' not declared", name);
+        log_error(line, "Variable '%s' not declared", name);
     }
     return sym;
 }
@@ -252,11 +338,11 @@ void codegen_push_func_arguments(ast_node *node, func_sym *sym, int arg_count){
     // Generate default values for missing arguments (pushed first -> bottom of stack)
     if (arg_count < sym->num_params) {
         if (!sym->default_values) {
-                codegen_error(node->line, "Missing arguments for function '%s'", node->data.call.name);
+                log_error(node->line, "Missing arguments for function '%s'", node->data.call.name);
         }
         for (int i = sym->num_params - 1; i >= arg_count; i--) {
             if (!sym->default_values[i]) {
-                codegen_error(node->line, "Missing argument %d for function '%s' (no default value)",
+                log_error(node->line, "Missing argument %d for function '%s' (no default value)",
                     i+1, node->data.call.name);
             }
             codegen_expr(sym->default_values[i]);
@@ -332,7 +418,7 @@ void codegen_expr(ast_node *node) {
                 case OP_AND: prog_add_op(prog, AND); break;
                 case OP_OR:  prog_add_op(prog, OR); break;
                 default:
-                    codegen_error(node->line, "Unknown binary operator");
+                    log_error(node->line, "Unknown binary operator");
             }
             break;
         }
@@ -362,7 +448,7 @@ void codegen_expr(ast_node *node) {
                     }
                     break;
                 default:
-                    codegen_error(node->line, "Unknown unary operator");
+                    log_error(node->line, "Unknown unary operator");
             }
             break;
         }
@@ -467,7 +553,7 @@ void codegen_expr(ast_node *node) {
             func_sym *sym = symtab_lookup_func(prog_symtab, node->data.call.name, arg_types, arg_count);
 
             if (!sym) {
-                codegen_error(node->line, "Function '%s' not declared or no matching overload found",
+                log_error(node->line, "Function '%s' not declared or no matching overload found",
                             node->data.call.name);
             }
             type_list_free(arg_types, arg_count);
@@ -492,10 +578,17 @@ void codegen_expr(ast_node *node) {
             break;
         }
 
+        case NODE_CAST: {
+            codegen_expr(node->data.cast.expr);
+            break;
+        }
+
         default:
-            codegen_error(node->line, "Invalid expression node type");
+            log_error(node->line, "Invalid expression node type");
     }
 }
+
+
 
 static void codegen_stmt(ast_node *node) {
     if (!node) return;
@@ -505,6 +598,9 @@ static void codegen_stmt(ast_node *node) {
             // Generate initializer
             if (node->data.decl.init) {
                 codegen_expr(node->data.decl.init);
+                yafl_t *init_t = get_expr_type(node->data.decl.init);
+                check_types_compatible(node->data.decl.type, init_t, node->line, "variable declaration");
+                type_free(init_t);
             } else {
                 // Auto-init to zero
                 codegen_zero_init(node->data.decl.type, node->line);
@@ -519,6 +615,11 @@ static void codegen_stmt(ast_node *node) {
 
         case NODE_ASSIGN: {
             codegen_expr(node->data.assign.value);
+            var_sym *sym = codegen_lookup_var(node->data.assign.name, node->line);
+            yafl_t *val_t = get_expr_type(node->data.assign.value);
+            check_types_compatible(sym->type, val_t, node->line, "assignment");
+            type_free(val_t);
+
             codegen_set_get_var(node->data.assign.name, node->line, SETVAR);
             break;
         }
@@ -526,6 +627,13 @@ static void codegen_stmt(ast_node *node) {
         case NODE_RETURN:
             if (node->data.ret.value) {
                 codegen_expr(node->data.ret.value);
+                yafl_t *ret_t = get_expr_type(node->data.ret.value);
+                check_types_compatible(current_func_ret_type, ret_t, node->line, "return statement");
+                type_free(ret_t);
+            } else {
+                if (current_func_ret_type && current_func_ret_type->base_t != TYPE_VOID) {
+                    log_error(node->line, "Return value expected for non-void function");
+                }
             }
             prog_add_op(prog, RET);
             break;
@@ -540,6 +648,12 @@ static void codegen_stmt(ast_node *node) {
 
         case NODE_IF: {
             codegen_expr(node->data.if_stmt.condition);
+            yafl_t *cond_t = get_expr_type(node->data.if_stmt.condition);
+            yafl_t *bool_t = type_new_simple(TYPE_BOOL);
+            check_types_compatible(bool_t, cond_t, node->line, "if condition");
+            type_free(cond_t);
+            type_free(bool_t);
+
             int else_jmp_pc = prog_add_num(prog, -1);
             prog_add_op(prog, JUMPF);
 
@@ -573,6 +687,11 @@ static void codegen_stmt(ast_node *node) {
             loop_push(cond_pc, false);
 
             codegen_expr(node->data.while_loop.condition);
+            yafl_t *cond_t = get_expr_type(node->data.while_loop.condition);
+            yafl_t *bool_t = type_new_simple(TYPE_BOOL);
+            check_types_compatible(bool_t, cond_t, node->line, "while condition");
+            type_free(cond_t);
+            type_free(bool_t);
 
             int exit_jmp = prog_add_num(prog, -1);
             prog_add_op(prog, JUMPF);
@@ -640,14 +759,14 @@ static void codegen_stmt(ast_node *node) {
                             key_val = v_str_new_cstr(expr->data.string.value);
                             break;
                         default:
-                            codegen_error(case_node->line, "Switch case must be a constant literal (int, str, bool)");
+                            log_error(case_node->line, "Switch case must be a constant literal (int, str, bool)");
                             break;
                     }
                     vector_push(pending_keys, key_val);
                 } else {
                     // Default case
                     if (default_pc_set || pending_default) {
-                        codegen_error(case_node->line, "Multiple default cases in switch");
+                        log_error(case_node->line, "Multiple default cases in switch");
                     }
                     if (!body) {
                         // Default as fallthrough
@@ -716,16 +835,34 @@ static void codegen_stmt(ast_node *node) {
 
             // Create Iterator
             codegen_expr(node->data.for_loop.iterable);
+            yafl_t *iter_t = get_expr_type(node->data.for_loop.iterable);
+            yafl_t *elem_t = NULL;
+
+            if (iter_t->base_t == TYPE_ARR) {
+                 elem_t = type_clone(iter_t->comp_t);
+            } else if (iter_t->base_t == TYPE_STR) {
+                 elem_t = type_new_simple(TYPE_STR);
+            } else if (iter_t->base_t == TYPE_RANGE) {
+                 elem_t = type_new_simple(TYPE_SINT);
+            } else {
+                 log_error(node->line, "Expression is not iterable (must be array, string, or range)");
+            }
+
             prog_add_op(prog, ITER_BEGIN);
 
             // Register loop variable
             ast_node *var_node = node->data.for_loop.var;
             var_sym *loop_var;
             if (var_node->type == NODE_FOR_DECL){
+                check_types_compatible(var_node->data.for_decl.type, elem_t, node->line, "for loop variable");
                 loop_var = codegen_register_var(var_node->data.for_decl.name, var_node->data.for_decl.type, var_node->line);
             } else {
                 loop_var = codegen_lookup_var(var_node->data.for_var.name, var_node->line);
+                check_types_compatible(loop_var->type, elem_t, node->line, "for loop variable");
             }
+
+            type_free(iter_t);
+            type_free(elem_t);
 
             int loop_start_pc = prog_next_pc(prog);
             loop_push(loop_start_pc, true);
@@ -776,13 +913,27 @@ static void codegen_stmt(ast_node *node) {
             codegen_expr(node->data.arr_assign.value);
             codegen_expr(node->data.arr_assign.idx);
             codegen_expr(node->data.arr_assign.base);
+
+            yafl_t *base_t = get_expr_type(node->data.arr_assign.base);
+            yafl_t *idx_t = get_expr_type(node->data.arr_assign.idx);
+            yafl_t *val_t = get_expr_type(node->data.arr_assign.value);
+
+            if (!base_t || base_t->base_t != TYPE_ARR) {
+                log_error(node->line, "Array assignment on non-array type");
+            }
+            yafl_t *int_t = type_new_simple(TYPE_SINT);
+            check_types_compatible(int_t, idx_t, node->line, "array index");
+            check_types_compatible(base_t->comp_t, val_t, node->line, "array assignment value");
+
+            type_free(base_t); type_free(idx_t); type_free(val_t); type_free(int_t);
+
             prog_add_op(prog, INDEXAS);
             break;
         }
 
         case NODE_NEXT: {
             if (!loop_stack) {
-                codegen_error(node->line, "next (continue) statement outside of loop");
+                log_error(node->line, "next (continue) statement outside of loop");
             }
             prog_add_num(prog, loop_stack->continue_pc);
             prog_add_op(prog, JUMP);
@@ -791,7 +942,7 @@ static void codegen_stmt(ast_node *node) {
 
         case NODE_STOP: {
             if (!loop_stack) {
-                codegen_error(node->line, "stop (break) statement outside of loop");
+                log_error(node->line, "stop (break) statement outside of loop");
             }
 
             // For loops have an iterator on the stack that needs to be popped
@@ -806,7 +957,7 @@ static void codegen_stmt(ast_node *node) {
         }
 
         default:
-            codegen_error(node->line, "Invalid statement node type");
+            log_error(node->line, "Invalid statement node type");
             break;
     }
 }
@@ -837,7 +988,7 @@ void codegen(ast_node *root, char *filename) {
             free(defaults);
 
             if (!sym) {
-                codegen_error(0, "Function '%s' already declared or duplicate signature",
+                log_error(0, "Function '%s' already declared or duplicate signature",
                             node->data.func.name);
             }
         } else if (node->type == NODE_DECL) {
@@ -886,19 +1037,19 @@ void codegen(ast_node *root, char *filename) {
         type_list_free(param_types, num_params);
 
         if (!func) {
-            codegen_error(node->line, "Function '%s' not found during Pass 2", node->data.func.name);
+            log_error(node->line, "Function '%s' not found during Pass 2", node->data.func.name);
         }
 
         int func_pc = prog_next_pc(prog);
         func->impl.pc = func_pc;
         prog_register_function(prog, node->data.func.name, func_pc);
-        printf("Generating function %s at pc=%d (sym addr: %p)\n",
+        log_debug(0, "Generating function %s at pc=%d (sym addr: %p)",
             node->data.func.name, func_pc, (void*)func);
 
         // Apply fixups
         fixup_node *fixup = func->fixups;
         while (fixup) {
-            printf("  Backpatching call to %s at %d\n", node->data.func.name, fixup->pc_location);
+            log_debug(0, "  Backpatching call to %s at %d", node->data.func.name, fixup->pc_location);
             prog_set_num(prog, fixup->pc_location, func_pc);
 
             fixup_node *next = fixup->next;
@@ -912,6 +1063,9 @@ void codegen(ast_node *root, char *filename) {
         // The CALL/CALL_PC opcodes create a stack frame so variables should start from zero again
         prog_symtab->current->var_offset = 0;
 
+        // Set return type context
+        current_func_ret_type = func->ret_type;
+
         // Parameters become locals 0..n-1
         for (ast_node *p = node->data.func.params; p; p = p->next) {
             symtab_add_var(prog_symtab, p->data.param.name, p->data.param.type);
@@ -920,8 +1074,11 @@ void codegen(ast_node *root, char *filename) {
         // Generate function body
         codegen_stmt(node->data.func.body);
 
-        // Implicit return for void functions
-        if (node->data.func.return_type->base_t == TYPE_VOID) {
+        // Check for return statement in non-void functions
+        if (!check_return(node->data.func.body) && node->data.func.return_type->base_t != TYPE_VOID) {
+            log_error(node->line, "Control reaches end of non-void function '%s'", node->data.func.name);
+        } else {
+            // Implicit return for void functions
             prog_add_op(prog, RET);
         }
 
@@ -932,24 +1089,30 @@ void codegen(ast_node *root, char *filename) {
     // start JUMP
     func_sym *start = symtab_lookup_func(prog_symtab, "start", NULL, 0);
     if (!start) {
-         codegen_error(0, "Entry point 'start()' not found");
+         log_error(0, "Entry point 'start()' not found");
     }
-    printf("Start function found at pc=%d (sym addr: %p)\n", start->impl.pc, (void*)start);
+    if (start->num_params != 0) {
+        log_error(0, "Entry point 'start' must have 0 parameters");
+    }
+    if (start->ret_type->base_t != TYPE_VOID && start->ret_type->base_t != TYPE_SINT) {
+        log_error(0, "Entry point 'start' must return 'none' or 'int'");
+    }
+    log_debug(0, "Start function found at pc=%d (sym addr: %p)", start->impl.pc, (void*)start);
     prog_set_num(prog, start_pc, start->impl.pc);
 
     // dump symbol table
-    printf("\n");
+    // printf("\n");
     symtab_dump(prog_symtab);
 
     prog_dump(prog);
 
     // Write to file
     if (prog_write(prog, filename)) {
-        printf("\nBytecode written to %s\n", filename);
+        log_info(0, "Bytecode written to %s", filename);
     } else {
-        fprintf(stderr, "Error writing bytecode to %s\n", filename);
+        log_error(0, "Error writing bytecode to %s", filename);
     }
 
     symtab_free(prog_symtab);
-    printf("Code generation complete.\n");
+    log_info(0, "Code generation complete.");
 }
