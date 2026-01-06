@@ -1,5 +1,6 @@
 CC = gcc
-CPPFLAGS = -Ibuild -Ilib -I../vm3/vm -MMD -MP
+# Include all source directories
+CPPFLAGS = -Ibuild -Iutils -Iast -Ianalysis -Icodegen -Ioptim -Iparser -I../vm3/vm -MMD -MP
 CFLAGS = -O3 -Wall -ggdb --std=gnu23
 LDLIBS = -lm
 BUILD = build
@@ -16,6 +17,7 @@ COMMON_OBJS = \
 	$(BUILD)/symtab.o \
 	$(BUILD)/hashmap.o \
 	$(BUILD)/types.o \
+	$(BUILD)/type_checking.o \
 	$(BUILD)/loop_stack.o \
 	$(BUILD)/vector.o \
 	$(BUILD)/logger.o
@@ -38,19 +40,31 @@ $(BUILD):
 .PHONY: vm3
 vm3: ../vm3/vm/libvm3.a
 
-# Rule for file in lib
-$(BUILD)/%.o: lib/%.c | $(BUILD)
+# Rules for source directories
+$(BUILD)/%.o: utils/%.c | $(BUILD)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
+
+$(BUILD)/%.o: ast/%.c | $(BUILD)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
+
+$(BUILD)/%.o: analysis/%.c | $(BUILD)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
+
+$(BUILD)/%.o: codegen/%.c | $(BUILD)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
+
+$(BUILD)/%.o: optim/%.c | $(BUILD)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
 
 # Bison
-$(BUILD)/parser.c $(BUILD)/parser.h: parser.y | $(BUILD)
+$(BUILD)/parser.c $(BUILD)/parser.h: parser/parser.y | $(BUILD)
 	bison --defines=$(BUILD)/parser.h -o $(BUILD)/parser.c $<
 
 $(BUILD)/parser.o: $(BUILD)/parser.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
 
 # Flex
-$(BUILD)/lexer.c: lexer.l $(BUILD)/parser.h | $(BUILD)
+$(BUILD)/lexer.c: parser/lexer.l $(BUILD)/parser.h | $(BUILD)
 	flex -o $@ $<
 
 $(BUILD)/lexer.o: $(BUILD)/lexer.c

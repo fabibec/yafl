@@ -9,7 +9,6 @@ typedef enum {
     TYPE_STR,
     TYPE_FUNC,
     TYPE_SINT,
-    TYPE_UINT,
     TYPE_FLOAT,
     TYPE_ARR,
     TYPE_RANGE,

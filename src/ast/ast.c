@@ -4,6 +4,7 @@
 #include "ast.h"
 #include "arith.h"
 #include "types.h"
+#include "logger.h"
 
 /* From flex */
 extern int yylineno;
@@ -622,16 +623,16 @@ void ast_print_dot(ast_node *node, const char *filename) {
     fprintf(fp, "}\n");
     fclose(fp);
 
-    printf("AST written to %s\n", filename);
+    log_debug(-1, "AST written to %s\n", filename);
 
     // Convert to svg automatically
     char cmd[512];
     snprintf(cmd, sizeof(cmd), "dot -Tsvg %s -o ast.svg", filename);
-    printf("Generating SVG: %s\n", cmd);
+    log_debug(-1, "Generating SVG: %s\n", cmd);
     if (system(cmd) != 0) {
-        fprintf(stderr, "Error generating SVG. Is 'graphviz' installed?\n");
+        log_error(-1, "Error generating SVG. Is 'graphviz' installed?\n");
     } else {
-        printf("SVG generated at ast.svg\n");
+        log_debug(-1, "SVG generated at ast.svg\n");
     }
 }
 

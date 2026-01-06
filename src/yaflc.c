@@ -22,7 +22,7 @@ static void usage(const char *prog) {
 }
 
 int main(int argc, char **argv) {
-    LogLevel level = LOG_INFO;
+    log_level level = LOG_INFO;
     char *input_file = NULL;
     char *output_file = "code.yaflb";
 
@@ -59,13 +59,14 @@ int main(int argc, char **argv) {
         }
     }
 
-    log_info(-1, "Parsing...");
     int result = yyparse();
     int ret_code = 0;
 
     if (result == 0 && root) {
         log_info(-1, "Parse successful!");
-        // ast_print_dot(root, "ast.dot");
+        if(logger_get_level() > LOG_INFO){
+            ast_print_dot(root, "ast.dot");
+        }
         codegen(root, output_file);
         ast_free(root);
     } else {

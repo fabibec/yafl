@@ -72,7 +72,6 @@ void type_to_str(const yafl_t *t, char *buf, size_t len) {
         case TYPE_STR:  snprintf(buf, len, "str"); break;
         case TYPE_FUNC: snprintf(buf, len, "func"); break;
         case TYPE_SINT: snprintf(buf, len, "int"); break;
-        case TYPE_UINT: snprintf(buf, len, "uint"); break;
         case TYPE_FLOAT:snprintf(buf, len, "float"); break;
         case TYPE_GENERIC:snprintf(buf, len, "any"); break;
         case TYPE_RANGE: snprintf(buf, len, "range"); break;

@@ -44,7 +44,7 @@
 %token OP_UN_DEC OP_UN_INC
 %token OP_BIN_LE OP_BIN_GE OP_BIN_NE
 %token OP_BIN_AND OP_BIN_OR
-%token T_STR T_BOOL T_NONE T_SINT T_UINT T_FLOAT T_RANGE
+%token T_STR T_BOOL T_NONE T_SINT T_FLOAT T_RANGE
 %token T_ARR
 
 /* Non-terminals */
@@ -339,7 +339,6 @@ type_basic:
     T_STR { $$ = type_new_simple(TYPE_STR); }
     | T_BOOL { $$ = type_new_simple(TYPE_BOOL); }
     | T_SINT { $$ = type_new_simple(TYPE_SINT); }
-    | T_UINT { $$ = type_new_simple(TYPE_UINT); }
     | T_FLOAT { $$ = type_new_simple(TYPE_FLOAT); }
     ;
 

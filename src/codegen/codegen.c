@@ -5,6 +5,7 @@
 #include "utils.h"
 #include "vector.h"
 #include "logger.h"
+#include "type_checking.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,228 +48,6 @@ static ast_node **extract_defaults(ast_node *params, int count) {
     return defaults;
 }
 
-/* --- Type Checking --- */
-yafl_t* get_expr_type(ast_node *node) {
-    if (!node) return NULL;
-
-    switch (node->type) {
-        case NODE_INT:
-            return type_new_simple(TYPE_SINT);
-        case NODE_FLOAT:
-            return type_new_simple(TYPE_FLOAT);
-        case NODE_BOOL:
-            return type_new_simple(TYPE_BOOL);
-        case NODE_STR:
-            return type_new_simple(TYPE_STR);
-        case NODE_VAR:
-            var_sym *var = symtab_lookup_var(prog_symtab, node->data.var.name);
-            if (!var) {
-                log_error(node->line, "Variable '%s' not declared", node->data.var.name);
-            }
-            return type_clone(var->type);
-
-        case NODE_BINARY:
-            yafl_t *left = get_expr_type(node->data.binary.left);
-            yafl_t *right = get_expr_type(node->data.binary.right);
-            yafl_t *res = NULL;
-
-            if (!left || !right) {
-                if (left) type_free(left);
-                if (right) type_free(right);
-                return NULL;
-            }
-
-            switch (node->data.binary.op){
-                case OP_ADD:
-                    if (left->base_t == TYPE_STR && right->base_t == TYPE_STR) {
-                        res = type_new_simple(TYPE_STR);
-                    } else if (left->base_t == TYPE_FLOAT && right->base_t == TYPE_FLOAT) {
-                        res = type_new_simple(TYPE_FLOAT);
-                    } else {
-                        if (left->base_t != TYPE_SINT && left->base_t != TYPE_UINT)
-                            log_error(node->line, "Invalid left operand for ADD (expected int/float/str)");
-                        if (right->base_t != TYPE_SINT && right->base_t != TYPE_UINT)
-                            log_error(node->line, "Invalid right operand for ADD (expected int/float/str)");
-                        res = type_new_simple(TYPE_SINT);
-                    }
-                    break;
-                case OP_SUB:
-                case OP_MUL:
-                case OP_DIV:
-                case OP_MOD:
-                    if (left->base_t == TYPE_FLOAT || right->base_t == TYPE_FLOAT) {
-                        res = type_new_simple(TYPE_FLOAT);
-                    } else {
-                        if ((left->base_t != TYPE_SINT && left->base_t != TYPE_UINT) ||
-                            (right->base_t != TYPE_SINT && right->base_t != TYPE_UINT)) {
-                            log_error(node->line, "Invalid operands for arithmetic operator");
-                        }
-                        res = type_new_simple(TYPE_SINT);
-                    }
-                    break;
-                case OP_LT:
-                case OP_GT:
-                case OP_LE:
-                case OP_GE:
-                case OP_EQ:
-                case OP_NE:
-                    res = type_new_simple(TYPE_BOOL);
-                    break;
-                case OP_AND:
-                case OP_OR:
-                    if (left->base_t != TYPE_BOOL || right->base_t != TYPE_BOOL) {
-                        log_error(node->line, "Logical operators require boolean operands");
-                    }
-                    res = type_new_simple(TYPE_BOOL);
-                    break;
-                default:
-                    res = type_new_simple(TYPE_SINT);
-                    break;
-            }
-            type_free(left);
-            type_free(right);
-            return res;
-
-        case NODE_CALL:
-            // Need to evaluate arg types to find correct overload
-            int arg_count = 0;
-            ast_node *args = node->data.call.args;
-            for (ast_node *p = args; p; p = p->next) arg_count++;
-
-            yafl_t **arg_types = NULL;
-            if (arg_count > 0) {
-                arg_types = malloc(arg_count * sizeof(yafl_t*));
-                int i = 0;
-                for (ast_node *p = args; p; p = p->next) {
-                    arg_types[i++] = get_expr_type(p);
-                }
-            }
-
-            func_sym *fn = symtab_lookup_func(prog_symtab, node->data.call.name, arg_types, arg_count);
-            type_list_free(arg_types, arg_count);
-
-            if (!fn) {
-                log_error(node->line, "Function '%s' not declared or no matching overload found",
-                            node->data.call.name);
-            }
-
-            return type_clone(fn->ret_type);
-
-        case NODE_UNARY:
-            if (node->data.unary.op == OP_NOT) {
-                yafl_t *t = get_expr_type(node->data.unary.operand);
-                if (t && t->base_t != TYPE_BOOL) {
-                    log_error(node->line, "NOT operator requires boolean operand");
-                }
-                type_free(t);
-                return type_new_simple(TYPE_BOOL);
-            }
-            return get_expr_type(node->data.unary.operand);
-
-        case NODE_ARR_IDX:
-            yafl_t *base_type = get_expr_type(node->data.arr_idx.base);
-            yafl_t *idx_type = get_expr_type(node->data.arr_idx.idx);
-
-            if (idx_type && idx_type->base_t != TYPE_SINT && idx_type->base_t != TYPE_UINT) {
-                log_error(node->line, "Array index must be integer");
-            }
-            type_free(idx_type);
-
-            if (base_type && base_type->base_t == TYPE_ARR) {
-                yafl_t *ret = type_clone(base_type->comp_t);
-                type_free(base_type);
-                return ret;
-            } else if (base_type && base_type->base_t == TYPE_STR) {
-                type_free(base_type);
-                return type_new_simple(TYPE_STR);
-            }
-            type_free(base_type);
-            log_error(node->line, "Indexing non-array/string type");
-            return NULL;
-
-        case NODE_ARR_LIT:
-            ast_node *el = node->data.arr_lit.elements;
-
-            yafl_t *first_type = get_expr_type(el);
-            if (!first_type) return NULL;
-
-            el = el->next;
-            while (el) {
-                yafl_t *next_type = get_expr_type(el);
-                if (!type_equals(first_type, next_type)) {
-                    log_error(node->line, "Array literal elements must have same type");
-                }
-                type_free(next_type);
-                el = el->next;
-            }
-            return type_new_composite(first_type);
-
-        case NODE_ARR_FILL:
-            yafl_t *val_type = get_expr_type(node->data.arr_fill.elements);
-            return type_new_composite(val_type);
-        case NODE_DEFAULT:
-            return type_clone(node->data.default_val.type);
-        case NODE_CAST:
-            return type_clone(node->data.cast.type);
-        default:
-            return NULL;
-    }
-}
-
-static void check_types_compatible(yafl_t *expected, yafl_t *actual, int line, const char *context) {
-    if (!expected || !actual) return;
-    if (!type_equals(expected, actual)) {
-        char s_exp[128], s_act[128];
-        type_to_str(expected, s_exp, sizeof(s_exp));
-        type_to_str(actual, s_act, sizeof(s_act));
-        log_error(line, "Type mismatch in %s: expected '%s', got '%s'", context, s_exp, s_act);
-    }
-}
-
-/* recursive check if all possible control paths return */
-static bool check_return(ast_node *node) {
-    if (!node) return false;
-
-    switch (node->type){
-        case NODE_RETURN:
-            return true;
-
-        case NODE_BLOCK:
-            for (ast_node *s = node->data.block.stmts; s; s = s->next) {
-                // stop and next make later statements unreachable
-                if (s->type == NODE_STOP || s->type == NODE_NEXT) return false;
-                if (check_return(s)) return true;
-            }
-            return false;
-
-        case NODE_IF:
-            bool then_ret = check_return(node->data.if_stmt.then_block);
-            bool else_ret = node->data.if_stmt.else_block ? check_return(node->data.if_stmt.else_block) : false;
-            return then_ret && else_ret;
-
-        case NODE_MATCH:
-            bool all_cases_ret = true;
-            ast_node *case_node = node->data.match_stmt.cases;
-            while(case_node) {
-                if (case_node->data.case_stmt.body && !check_return(case_node->data.case_stmt.body)) {
-                    // Every block should contain ret statement
-                    all_cases_ret = false;
-                } else if (!case_node->next && !case_node->data.case_stmt.body){
-                    // Last statement is fallthrough
-                    all_cases_ret = false;
-                }
-                case_node = case_node->next;
-            }
-            return all_cases_ret;
-
-        case NODE_WHILE:
-            return check_return(node->data.while_loop.body);
-
-        default:
-            return false;
-    }
-}
-
 /* --- Codegen --- */
 
 /* Helper for automatic zero-init (local + global vars) */
@@ -287,7 +66,6 @@ static void codegen_zero_init(yafl_t *type, int line) {
 
         case TYPE_BOOL:
         case TYPE_SINT:
-        case TYPE_UINT:
             prog_add_num(prog, 0);
             break;
         case TYPE_FLOAT:
@@ -546,7 +324,7 @@ void codegen_expr(ast_node *node) {
                 arg_types = malloc(arg_count * sizeof(yafl_t*));
                 int i = 0;
                 for (ast_node *p = args; p; p = p->next) {
-                    arg_types[i++] = get_expr_type(p);
+                    arg_types[i++] = type_check_expr(p);
                 }
             }
 
@@ -598,8 +376,8 @@ static void codegen_stmt(ast_node *node) {
             // Generate initializer
             if (node->data.decl.init) {
                 codegen_expr(node->data.decl.init);
-                yafl_t *init_t = get_expr_type(node->data.decl.init);
-                check_types_compatible(node->data.decl.type, init_t, node->line, "variable declaration");
+                yafl_t *init_t = type_check_expr(node->data.decl.init);
+                type_check_compatibility(node->data.decl.type, init_t, node->line, "variable declaration");
                 type_free(init_t);
             } else {
                 // Auto-init to zero
@@ -616,8 +394,8 @@ static void codegen_stmt(ast_node *node) {
         case NODE_ASSIGN: {
             codegen_expr(node->data.assign.value);
             var_sym *sym = codegen_lookup_var(node->data.assign.name, node->line);
-            yafl_t *val_t = get_expr_type(node->data.assign.value);
-            check_types_compatible(sym->type, val_t, node->line, "assignment");
+            yafl_t *val_t = type_check_expr(node->data.assign.value);
+            type_check_compatibility(sym->type, val_t, node->line, "assignment");
             type_free(val_t);
 
             codegen_set_get_var(node->data.assign.name, node->line, SETVAR);
@@ -627,8 +405,8 @@ static void codegen_stmt(ast_node *node) {
         case NODE_RETURN:
             if (node->data.ret.value) {
                 codegen_expr(node->data.ret.value);
-                yafl_t *ret_t = get_expr_type(node->data.ret.value);
-                check_types_compatible(current_func_ret_type, ret_t, node->line, "return statement");
+                yafl_t *ret_t = type_check_expr(node->data.ret.value);
+                type_check_compatibility(current_func_ret_type, ret_t, node->line, "return statement");
                 type_free(ret_t);
             } else {
                 if (current_func_ret_type && current_func_ret_type->base_t != TYPE_VOID) {
@@ -648,9 +426,9 @@ static void codegen_stmt(ast_node *node) {
 
         case NODE_IF: {
             codegen_expr(node->data.if_stmt.condition);
-            yafl_t *cond_t = get_expr_type(node->data.if_stmt.condition);
+            yafl_t *cond_t = type_check_expr(node->data.if_stmt.condition);
             yafl_t *bool_t = type_new_simple(TYPE_BOOL);
-            check_types_compatible(bool_t, cond_t, node->line, "if condition");
+            type_check_compatibility(bool_t, cond_t, node->line, "if condition");
             type_free(cond_t);
             type_free(bool_t);
 
@@ -687,9 +465,9 @@ static void codegen_stmt(ast_node *node) {
             loop_push(cond_pc, false);
 
             codegen_expr(node->data.while_loop.condition);
-            yafl_t *cond_t = get_expr_type(node->data.while_loop.condition);
+            yafl_t *cond_t = type_check_expr(node->data.while_loop.condition);
             yafl_t *bool_t = type_new_simple(TYPE_BOOL);
-            check_types_compatible(bool_t, cond_t, node->line, "while condition");
+            type_check_compatibility(bool_t, cond_t, node->line, "while condition");
             type_free(cond_t);
             type_free(bool_t);
 
@@ -835,7 +613,7 @@ static void codegen_stmt(ast_node *node) {
 
             // Create Iterator
             codegen_expr(node->data.for_loop.iterable);
-            yafl_t *iter_t = get_expr_type(node->data.for_loop.iterable);
+            yafl_t *iter_t = type_check_expr(node->data.for_loop.iterable);
             yafl_t *elem_t = NULL;
 
             if (iter_t->base_t == TYPE_ARR) {
@@ -854,11 +632,11 @@ static void codegen_stmt(ast_node *node) {
             ast_node *var_node = node->data.for_loop.var;
             var_sym *loop_var;
             if (var_node->type == NODE_FOR_DECL){
-                check_types_compatible(var_node->data.for_decl.type, elem_t, node->line, "for loop variable");
+                type_check_compatibility(var_node->data.for_decl.type, elem_t, node->line, "for loop variable");
                 loop_var = codegen_register_var(var_node->data.for_decl.name, var_node->data.for_decl.type, var_node->line);
             } else {
                 loop_var = codegen_lookup_var(var_node->data.for_var.name, var_node->line);
-                check_types_compatible(loop_var->type, elem_t, node->line, "for loop variable");
+                type_check_compatibility(loop_var->type, elem_t, node->line, "for loop variable");
             }
 
             type_free(iter_t);
@@ -901,7 +679,7 @@ static void codegen_stmt(ast_node *node) {
         case NODE_ARR_IDX:
         case NODE_ARR_LIT: {
             codegen_expr(node);
-            yafl_t *t = get_expr_type(node);
+            yafl_t *t = type_check_expr(node);
             if (t && t->base_t != TYPE_VOID) {
                 prog_add_op(prog, DISCARD);
             }
@@ -914,16 +692,16 @@ static void codegen_stmt(ast_node *node) {
             codegen_expr(node->data.arr_assign.idx);
             codegen_expr(node->data.arr_assign.base);
 
-            yafl_t *base_t = get_expr_type(node->data.arr_assign.base);
-            yafl_t *idx_t = get_expr_type(node->data.arr_assign.idx);
-            yafl_t *val_t = get_expr_type(node->data.arr_assign.value);
+            yafl_t *base_t = type_check_expr(node->data.arr_assign.base);
+            yafl_t *idx_t = type_check_expr(node->data.arr_assign.idx);
+            yafl_t *val_t = type_check_expr(node->data.arr_assign.value);
 
             if (!base_t || base_t->base_t != TYPE_ARR) {
                 log_error(node->line, "Array assignment on non-array type");
             }
             yafl_t *int_t = type_new_simple(TYPE_SINT);
-            check_types_compatible(int_t, idx_t, node->line, "array index");
-            check_types_compatible(base_t->comp_t, val_t, node->line, "array assignment value");
+            type_check_compatibility(int_t, idx_t, node->line, "array index");
+            type_check_compatibility(base_t->comp_t, val_t, node->line, "array assignment value");
 
             type_free(base_t); type_free(idx_t); type_free(val_t); type_free(int_t);
 
@@ -1075,7 +853,7 @@ void codegen(ast_node *root, char *filename) {
         codegen_stmt(node->data.func.body);
 
         // Check for return statement in non-void functions
-        if (!check_return(node->data.func.body) && node->data.func.return_type->base_t != TYPE_VOID) {
+        if (!type_check_return_paths(node->data.func.body) && node->data.func.return_type->base_t != TYPE_VOID) {
             log_error(node->line, "Control reaches end of non-void function '%s'", node->data.func.name);
         } else {
             // Implicit return for void functions
@@ -1089,7 +867,7 @@ void codegen(ast_node *root, char *filename) {
     // start JUMP
     func_sym *start = symtab_lookup_func(prog_symtab, "start", NULL, 0);
     if (!start) {
-         log_error(0, "Entry point 'start()' not found");
+        log_error(0, "Entry point 'start()' not found");
     }
     if (start->num_params != 0) {
         log_error(0, "Entry point 'start' must have 0 parameters");
@@ -1100,11 +878,14 @@ void codegen(ast_node *root, char *filename) {
     log_debug(0, "Start function found at pc=%d (sym addr: %p)", start->impl.pc, (void*)start);
     prog_set_num(prog, start_pc, start->impl.pc);
 
-    // dump symbol table
-    // printf("\n");
-    symtab_dump(prog_symtab);
+    if(logger_get_level() > LOG_INFO){
+        log_debug(-1, "Dumping symbol table and bytecode:");
+        symtab_dump(prog_symtab);
+        prog_dump(prog);
+    }
 
-    prog_dump(prog);
+    symtab_free(prog_symtab);
+    log_info(0, "Code generation complete.");
 
     // Write to file
     if (prog_write(prog, filename)) {
@@ -1112,7 +893,4 @@ void codegen(ast_node *root, char *filename) {
     } else {
         log_error(0, "Error writing bytecode to %s", filename);
     }
-
-    symtab_free(prog_symtab);
-    log_info(0, "Code generation complete.");
 }

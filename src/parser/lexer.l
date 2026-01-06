@@ -107,8 +107,7 @@ IGNORE [ \t\n]+
 "str" { return T_STR; }
 "bool" { return T_BOOL; }
 "none" { return T_NONE; }
-"int"|"sint" { return T_SINT; }
-"uint" { return T_UINT; }
+"int"  { return T_SINT; }
 "float" { return T_FLOAT; }
 "range\'int" { return T_RANGE; }
 

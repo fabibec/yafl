@@ -2,12 +2,13 @@
 #include "types.h"
 #include "ast.h"
 #include "codegen.h"
+#include "type_checking.h"
 #include <stdlib.h>
 #include <limits.h>
 
 /* fn print(any: |printable|) -> none */
 void builtins_print(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    yafl_t *arg_type = get_expr_type(node->data.call.args);
+    yafl_t *arg_type = type_check_expr(node->data.call.args);
     bool is_range = arg_type && arg_type->base_t == TYPE_RANGE;
     type_free(arg_type);
 

@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-O2 -ggdb -Wall -I. -I../../src/lib -Werror --std=gnu11
+CFLAGS=-O2 -ggdb -Wall -I. -I../../src/utils -Werror --std=gnu11
 
 OBJ=prog.o custom.o stack.o vstack.o val/str.o val/num.o val/arr.o val/real.o val/val.o val/map.o vars.o utils.o
 LIBS=-lm
@@ -17,8 +17,8 @@ libvm3.a: $(OBJ) op_enum.h op_switch.h op_str.h
 
 prog.o: includes
 
-utils.o: ../../src/lib/utils.c
-	$(CC) $(CFLAGS) -I../../src/lib -c -o $@ $<
+utils.o: ../../src/utils/utils.c
+	$(CC) $(CFLAGS) -I../../src/utils -c -o $@ $<
 
 includes:
 	./mkincludes.sh
