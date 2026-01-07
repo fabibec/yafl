@@ -8,6 +8,7 @@
     #include <stdio.h>
     #include <stdint.h>
     #include <inttypes.h>
+    #include <string.h>
     #include "ast.h"
     #include "logger.h"
 
@@ -41,6 +42,7 @@
 %token KW_WHERE
 %token KW_MATCH KW_CASE KW_DEFAULT
 %token S_RARROW S_LARROW
+%token S_LARROW_ADD S_LARROW_SUB S_LARROW_MUL S_LARROW_DIV S_LARROW_MOD
 %token OP_UN_DEC OP_UN_INC
 %token OP_BIN_LE OP_BIN_GE OP_BIN_NE
 %token OP_BIN_AND OP_BIN_OR
@@ -198,6 +200,21 @@ var_decl_stmt:
 assignment_stmt:
     ID_VAR S_LARROW expr ';' {
         $$ = ast_new_assign($1, $3);
+    }
+    | ID_VAR S_LARROW_ADD expr ';' {
+        $$ = ast_new_assign($1, ast_new_binary(OP_ADD, ast_new_var(strdup($1)), $3));
+    }
+    | ID_VAR S_LARROW_SUB expr ';' {
+        $$ = ast_new_assign($1, ast_new_binary(OP_SUB, ast_new_var(strdup($1)), $3));
+    }
+    | ID_VAR S_LARROW_MUL expr ';' {
+        $$ = ast_new_assign($1, ast_new_binary(OP_MUL, ast_new_var(strdup($1)), $3));
+    }
+    | ID_VAR S_LARROW_DIV expr ';' {
+        $$ = ast_new_assign($1, ast_new_binary(OP_DIV, ast_new_var(strdup($1)), $3));
+    }
+    | ID_VAR S_LARROW_MOD expr ';' {
+        $$ = ast_new_assign($1, ast_new_binary(OP_MOD, ast_new_var(strdup($1)), $3));
     }
     | primary '[' expr ']' S_LARROW expr ';' {
         $$ = ast_new_arr_assign($1, $3, $6);

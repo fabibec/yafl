@@ -100,6 +100,11 @@ IGNORE [ \t\n]+
 "stop" { return KW_STOP; }
 "in" { return KW_IN; }
 
+"<-+" { return S_LARROW_ADD; }
+"<--" { return S_LARROW_SUB; }
+"<-*" { return S_LARROW_MUL; }
+"<-/" { return S_LARROW_DIV; }
+"<-%" { return S_LARROW_MOD; }
 "->" { return S_RARROW; }
 "<-" { return S_LARROW; }
 

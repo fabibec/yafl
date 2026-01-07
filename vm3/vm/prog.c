@@ -677,7 +677,7 @@ NATIVE(print) {
     if (a->type == T_UNDEF)
       break;
     val_t *s = val_to_string(a);
-    printf(" %s", cstr(s));
+    printf("%s", cstr(s));
   }
   fflush(stdout);
   return &val_undef;
@@ -690,7 +690,7 @@ NATIVE(println) {
     if (a->type == T_UNDEF)
       break;
     val_t *s = val_to_string(a);
-    printf(" %s", cstr(s));
+    printf("%s", cstr(s));
   }
   printf("\n");
   fflush(stdout);

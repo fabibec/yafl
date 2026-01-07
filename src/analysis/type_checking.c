@@ -47,7 +47,11 @@ yafl_t* type_check_expr(ast_node *node) {
                 return NULL;
             }
 
-            if (!type_is_identical(left, right)) {
+            bool types_match = type_is_identical(left, right);
+            bool is_mul_str_int = (node->data.binary.op == OP_MUL) && (left->base_t == TYPE_STR && right->base_t == TYPE_SINT);
+            bool is_mul_arr_str = (node->data.binary.op == OP_MUL) && (left->base_t == TYPE_ARR && right->base_t == TYPE_STR);
+
+            if (!types_match && !is_mul_str_int && !is_mul_arr_str) {
                 char l_str[64], r_str[64];
                 type_to_str(left, l_str, 64);
                 type_to_str(right, r_str, 64);
@@ -57,14 +61,22 @@ yafl_t* type_check_expr(ast_node *node) {
             switch (node->data.binary.op){
                 case OP_ADD:
                     if (left->base_t == TYPE_STR || left->base_t == TYPE_FLOAT ||
-                        left->base_t == TYPE_SINT) {
+                        left->base_t == TYPE_SINT || left->base_t == TYPE_ARR) {
                         res = type_clone(left);
                     } else {
                         log_error(node->line, "Invalid operand type for +");
                     }
                     break;
-                case OP_SUB:
                 case OP_MUL:
+                    if (is_mul_str_int || is_mul_arr_str) {
+                        res = type_new_simple(TYPE_STR);
+                    } else if (left->base_t == TYPE_FLOAT || left->base_t == TYPE_SINT) {
+                        res = type_clone(left);
+                    } else {
+                        log_error(node->line, "Invalid operand type for arithmetic operator");
+                    }
+                    break;
+                case OP_SUB:
                 case OP_DIV:
                 case OP_MOD:
                     if (left->base_t == TYPE_FLOAT || left->base_t == TYPE_SINT) {

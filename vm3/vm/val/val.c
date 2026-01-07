@@ -184,7 +184,10 @@ val_t *val_add (val_t *v1, val_t *v2) {
     case T_ARR:
       ret = val_copy(v1);
       if (v2->type == T_ARR) {
-        arr_add(ret->u.arr, v2->u.arr);
+        /* arr + arr creates a deepcopy of both sides! */
+        for (int i = 0; i < v2->u.arr->size; i++) {
+          arr_push(ret->u.arr, val_copy(arr_get(v2->u.arr, i)));
+        }
       } else {
         arr_push(ret->u.arr, v2);
       }

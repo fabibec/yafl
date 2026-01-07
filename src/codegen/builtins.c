@@ -356,6 +356,7 @@ void builtins_register(symtab *s) {
     // print<ln>(any) -> none
     yafl_t *none_t = type_new_simple(TYPE_VOID);
     yafl_t *any_t = type_new_simple(TYPE_GENERIC);
+    yafl_t *range_t = type_new_simple(TYPE_RANGE);
     yafl_t *print_args[] = {any_t};
 
     symtab_add_builtin(s, "print", none_t, 1, print_args, NULL, builtins_print);
@@ -400,6 +401,14 @@ void builtins_register(symtab *s) {
 
     // copy(...) -> arr'any
     symtab_add_builtin(s, "copy", arr_any_t, 1, len_arr_args, NULL, builtins_copy);
+    
+    // copy(str) -> str
+    yafl_t *copy_str_args[] = {str_t};
+    symtab_add_builtin(s, "copy", str_t, 1, copy_str_args, NULL, builtins_copy);
+
+    // copy(range) -> range
+    yafl_t *copy_range_args[] = {range_t};
+    symtab_add_builtin(s, "copy", range_t, 1, copy_range_args, NULL, builtins_copy);
 
     // slice(...) -> arr'any | str
     yafl_t *slice_args[] = {arr_any_t, int_t, int_t};
@@ -425,7 +434,6 @@ void builtins_register(symtab *s) {
     // range(...) -> range'int
     yafl_t *range_args[] = {int_t, int_t, int_t};
     yafl_t *range_args_stop[] = {int_t};
-    yafl_t *range_t = type_new_simple(TYPE_RANGE);
     ast_node *step_default = ast_new_int(1);
     ast_node *range_defaults[] = {NULL, NULL, step_default};
 
