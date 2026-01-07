@@ -10,6 +10,10 @@ src/build/*
 **/*.o
 **/*.a
 
+# Allow SVG and YAFLB in demo/
+!demo/**/*.svg
+!demo/**/*.yaflb
+
 # Ignore Latex Junk
 doc/build/*
 !doc/build/report.pdf

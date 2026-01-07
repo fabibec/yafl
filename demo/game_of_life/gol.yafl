@@ -1,22 +1,19 @@
-int |WIDTH| <- 300;
-int |HEIGHT| <- 300;
-str |ALIVE| <- >>#<<;
-str |DEAD| <- >> <<;
+int |WIDTH| <- 30;
+int |HEIGHT| <- 15;
+int |ALIVE| <- 1;
+int |DEAD| <- 0;
 
-fn start() -> int {
-    clear_screen();
-    println(>>Conway's Game of Life in Yafl by Fabian Becker<<);
-    arr'arr'str |grid| <- init_field();
+fn start() -> none {
+    ~~ Hide cursor
+    print(>>^x1B[?25l<<);
 
-    sleep(2_000);
+    println(>>Yafl Demo 1: Conway's Game of Life<<);
+    arr'arr'int |grid| <- init_field();
 
     while(Yes){
-        clear_screen();
         print_grid(|grid|);
-        update(|grid|);
-        sleep(10);
+        |grid| <- update(|grid|);
     }
-    ret 0;
 }
 
 fn is_digit(str: |chr|) -> bool {
@@ -42,10 +39,9 @@ fn parse_int_after(str: |line|, str: |substring|) -> int{
     ret |val|;
 }
 
-fn init_field() -> arr'arr'str {
+fn init_field() -> arr'arr'int {
     arr'str |input args| <- args();
     arr'str |file content|;
-    arr'arr'str |grid|;
 
     if (len(|input args|) = 1){
         |file content| <- read(|input args|[0]);
@@ -54,26 +50,43 @@ fn init_field() -> arr'arr'str {
             exit();
         }
 
-        ~~ Parse grid size
-        str |first line| <- slice(|file content|, 1, 2)[0];
-        int |WIDTH| <- parse_int_after(|first line|, >>x = <<);
-        int |HEIGHT| <- parse_int_after(|first line|, >>y = <<);
+        ~~ Skip comments
+        int |line idx|;
+        for str |line| in |file content| {
+            if(|line|[0] = >>#<<) { |line idx|++; next;}
+            stop;
+        }
 
-        |grid| <- init_dead_arr();
+        ~~ Parse grid size
+        str |first line| <- slice(|file content|, |line idx|, |line idx|++)[0];
+        int |pattern width| <- parse_int_after(|first line|, >>x = <<);
+        int |pattern height| <- parse_int_after(|first line|, >>y = <<);
+
+        if(|pattern width| > |WIDTH| or |pattern height| > |HEIGHT|){
+            println(>>Error: Grid size << + to_str(|WIDTH|) + >>x<< + to_str(|HEIGHT|) +
+                >> to small for pattern of size << + to_str(|pattern width|) + >>x<< + to_str(|pattern height|) );
+            exit();
+        }
+
+        ~~ Calculate offset
+        int |offset x| <- (|WIDTH| - |pattern width|) / 2;
+        int |offset y| <- (|HEIGHT| - |pattern height|) / 2;
+
+        arr'arr'int |grid| <- init_dead_arr();
         println(>>Grid size: << + to_str(|WIDTH|) + >> x << + to_str(|HEIGHT|));
 
         ~~ Parse pattern
         int |x|;
         int |y|;
         int |cnt|;
-        for str |line| in slice(|file content|, 2) {
+        for str |line| in slice(|file content|, |line idx|) {
             for str |char| in |line| {
                 match(|char|) {
                     case >>o<< -> {
                         ~~ live cell
                         if(|cnt| = 0){ |cnt| <- 1; }
                         for int |i| in range (|cnt|) {
-                            |grid|[|y|][|x|] <- |ALIVE|;
+                            |grid|[|y| + |offset y|][|x| + |offset x|] <- |ALIVE|;
                             |x|++;
                         }
                         |cnt| <- 0;
@@ -81,13 +94,13 @@ fn init_field() -> arr'arr'str {
                     case >>b<< -> {
                         ~~ dead cell - skip points
                         if(|cnt| = 0){ |cnt| <- 1; }
-                        |x| <- |x| + |cnt|;
+                        |x| <-+ |cnt|;
                         |cnt| <- 0;
                     }
                     case >>$<< -> {
                         ~~ skip rows
                         if(|cnt| = 0){ |cnt| <- 1; }
-                        |y| <- |y| + |cnt|;
+                        |y| <-+ |cnt|;
                         |x| <- 0;
                         |cnt| <- 0;
                     }
@@ -102,30 +115,39 @@ fn init_field() -> arr'arr'str {
                 }
             }
         }
+        ret |grid|;
     } else {
         println(>>x = << + to_str(|WIDTH|) + >>, y = << + to_str(|HEIGHT|));
         println(>>No pattern file provided, creating random field!<<);
-        |grid| <- init_dead_arr();
+        arr'arr'int |grid| <- init_dead_arr();
         init_random(|grid|);
+        ret |grid|;
     }
-    ret |grid|;
+
 }
 
 ~~ Init dead 2D-array
-fn init_dead_arr() -> arr'arr'str {
-    arr'arr'str |grid|[|HEIGHT|];
+fn init_dead_arr() -> arr'arr'int {
+    arr'arr'int |grid|[|HEIGHT|];
     for int |i| in range(0, |HEIGHT|) {
         |grid|[|i|] <- [|DEAD|] * |WIDTH|;
     }
     ret |grid|;
 }
 
-fn clear_screen() -> none {
-    print(>>^x1B[H^x1B[J<<);
+~~ Init random 2D-array
+fn init_random(arr'arr'int: |grid|) -> none {
+    for int |y| in range(0, |HEIGHT|) {
+        for int |x| in range(0, |WIDTH|) {
+            if(rng(4) = 0){
+                |grid|[|y|][|x|] <- |ALIVE|;
+            }
+        }
+    }
 }
 
 ~~ Check amount of alive surrounding neighbors
-fn count_neighbors(arr'arr'str: |grid|, int: |y|, int: |x|) -> int {
+fn count_neighbors(arr'arr'int: |grid|, int: |y|, int: |x|) -> int {
     int |count|;
 
     for int |dy| in range(-1, 2) {
@@ -144,12 +166,12 @@ fn count_neighbors(arr'arr'str: |grid|, int: |y|, int: |x|) -> int {
 
         }
     }
-
     ret |count|;
 }
 
-fn update(arr'arr'str: |grid|) -> none {
-    arr'arr'str |next|[|HEIGHT|];
+~~ Gol update
+fn update(arr'arr'int: |grid|) -> arr'arr'int {
+    arr'arr'int |next|[|HEIGHT|];
     for int |i| in range(0, |HEIGHT|) {
         |next|[|i|] <- [|DEAD|] * |WIDTH|;
     }
@@ -157,8 +179,9 @@ fn update(arr'arr'str: |grid|) -> none {
     for int |y| in range(0, |HEIGHT|) {
         for int |x| in range(0, |WIDTH|) {
             int |neighbors| <- count_neighbors(|grid|, |y|, |x|);
+            int |cell| <- |grid|[|y|][|x|];
 
-            if (|grid|[|y|][|x|] = |ALIVE| and (|neighbors| = 2 or |neighbors| = 3)) {
+            if (|cell| = |ALIVE| and (|neighbors| = 2 or |neighbors| = 3)) {
                 |next|[|y|][|x|] <- |ALIVE|;
             } elif (|neighbors| = 3) {
                 |next|[|y|][|x|] <- |ALIVE|;
@@ -166,32 +189,22 @@ fn update(arr'arr'str: |grid|) -> none {
         }
     }
 
-    ~~ Copy next state to grid;
-    for int |y| in range(0, |HEIGHT|) {
-        for int |x| in range(0, |WIDTH|) {
-            |grid|[|y|][|x|] <- |next|[|y|][|x|];
-        }
-    }
+    ret |next|;
 }
 
-fn print_grid(arr'arr'str: |grid|) -> none {
-    str |out|;
+fn print_grid(arr'arr'int: |grid|) -> none {
+    print(>>+<< + (>>-<< * |WIDTH|) + >>+^n<<);
     for int |y| in range(0, |HEIGHT|) {
+        print(>>|<<);
         for int |x| in range(0, |WIDTH|) {
-            |out| <- |out| + |grid|[|y|][|x|];
-        }
-        |out| <- |out| + >>^n<<;
-    }
-    print(|out|);
-}
-
-fn init_random(arr'arr'str: |grid|) -> none {
-    for int |y| in range(0, |HEIGHT|) {
-        for int |x| in range(0, |WIDTH|) {
-            if(rng(4) = 0){
-                |grid|[|y|][|x|] <- |ALIVE|;
+            if(|grid|[|y|][|x|] ~= 0) {
+                print(>>#<<);
+            } else {
+                print(>> <<);
             }
         }
+        print(>>|^n<<);
     }
+    print(>>+<< + (>>-<< * |WIDTH|) + >>+^n<<);
+    print(>>^x1B[<< + to_str(|HEIGHT| + 2) + >>A<<);
 }
-

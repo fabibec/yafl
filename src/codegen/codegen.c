@@ -17,6 +17,7 @@ prog_t *prog = NULL;
 symtab *prog_symtab = NULL;
 int temp_var_counter = 0;
 yafl_t *current_func_ret_type = NULL;
+bool codegen_inline_builtins = true;
 
 /* Forward declarations */
 static void codegen_stmt(ast_node *node);
@@ -762,6 +763,18 @@ void codegen(ast_node *root, char *filename) {
                 defaults,
                 -1   // pc unknown for now
             );
+
+            // Type check default arguments
+            ast_node *param_node = node->data.func.params;
+            for (int i = 0; i < num_params; i++) {
+                if (defaults[i]) {
+                    yafl_t *def_t = type_check_expr(defaults[i]);
+                    type_check_compatibility(param_types[i], def_t, param_node->line, "default argument");
+                    type_free(def_t);
+                }
+                param_node = param_node->next;
+            }
+
             type_list_free(param_types, num_params);
             free(defaults);
 

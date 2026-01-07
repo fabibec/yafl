@@ -6,6 +6,7 @@
 struct str {
   char *buf;
   int len;
+  int cap;
 };
 
 typedef struct str str_t;

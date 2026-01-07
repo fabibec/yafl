@@ -150,6 +150,8 @@ void builtins_contains(prog_t *prog, ast_node *node, func_sym *sym, int arg_coun
 }
 
 /* fn copy(arr'any: |src|) -> arr'any */
+/* fn copy(range'int: |src|) -> range'int */
+/* fn copy(str: |src|) -> str */
 void builtins_copy(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
     codegen_push_func_arguments(node, sym, arg_count);
     prog_add_op(prog, COPY);
@@ -398,10 +400,9 @@ void builtins_register(symtab *s) {
     yafl_t *len_str_args[] = {str_t};
     symtab_add_builtin(s, "len", int_t, 1, len_arr_args, NULL, builtins_len_arr);
     symtab_add_builtin(s, "len", int_t, 1, len_str_args, NULL, builtins_len_str);
-
     // copy(...) -> arr'any
     symtab_add_builtin(s, "copy", arr_any_t, 1, len_arr_args, NULL, builtins_copy);
-    
+
     // copy(str) -> str
     yafl_t *copy_str_args[] = {str_t};
     symtab_add_builtin(s, "copy", str_t, 1, copy_str_args, NULL, builtins_copy);
@@ -440,10 +441,8 @@ void builtins_register(symtab *s) {
     symtab_add_builtin(s, "range", range_t, 3, range_args, range_defaults, builtins_range);
     symtab_add_builtin(s, "range", range_t, 1, range_args_stop, NULL, builtins_range_stop);
 
-    // Casting
-    yafl_t *float_t = type_new_simple(TYPE_FLOAT);
-
     // to_int(...)
+    yafl_t *float_t = type_new_simple(TYPE_FLOAT);
     yafl_t *arg_float[] = {float_t};
     yafl_t *arg_str[] = {str_t};
     yafl_t *arg_bool[] = {bool_t};

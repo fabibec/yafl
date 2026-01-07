@@ -679,7 +679,7 @@ NATIVE(print) {
     val_t *s = val_to_string(a);
     printf("%s", cstr(s));
   }
-  fflush(stdout);
+  //fflush(stdout);
   return &val_undef;
 }
 
@@ -693,7 +693,7 @@ NATIVE(println) {
     printf("%s", cstr(s));
   }
   printf("\n");
-  fflush(stdout);
+  //fflush(stdout);
   return &val_undef;
 }
 

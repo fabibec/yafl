@@ -1,9 +1,190 @@
-fn draw_card() -> int {
-    int |card| <- rng(1,12);
-    if (|card| > 10) {
-        ret 10; ~~ J,Q,K
+arr'str |ranks| <- [>>A<<,>>2<<,>>3<<,>>4<<,>>5<<,>>6<<,>>7<<,>>8<<,>>9<<,>>10<<,>>J<<,>>Q<<,>>K<<];
+arr'str |suits| <- [>>S<<,>>H<<,>>D<<,>>C<<];
+arr'str |unknown val| <- [>><<];
+arr'str |unknown card| <- [
+    >>┌─────┐<<,
+    >>│?    │<<,
+    >>│     │<<,
+    >>│    ?│<<,
+    >>└─────┘<<
+];
+
+fn start() -> none {
+    int |first balance| <- 100;
+    int |balance| <- |first balance|;
+
+    while (|balance| > 0){
+        clear_screen();
+        println(>>Yafl Demo 3: Blackjack^nBalance: << + to_str(|balance|) + >>$<<);
+
+        ~~ Ask for bet amount
+        int |bet| <- input_int(>>Enter your bet amount (1$ - << + to_str(|balance|) + >>$):<<);
+        if (|bet| <= 0 or |bet| > |balance|) {
+            println(>>Invalid bet!<<);
+            next;
+        }
+
+        ~~ Deal initial cards
+        arr'arr'str |player hand| <- [draw_card(), draw_card()];
+        arr'arr'str |dealer hand| <- [draw_card(), draw_card()];
+
+        ~~ Show cards (only first for Dealer)
+        println(>>Dealer:<<);
+        print(ascii_hand([|dealer hand|[0], |unknown val|]));
+
+        int |player total| <- hand_total(|player hand|);
+        int |dealer total| <- hand_total(|dealer hand|);
+        println(>>You (Total: << + to_str(|player total|) + >>):<<);
+        print(ascii_hand(|player hand|));
+
+        ~~ Player turn
+        while(|player total| < 21){
+            str |action| <- input_str(>>Hit, Stand or Quit? (h/s/q): <<);
+            match(|action|) {
+                case >>q<< -> {
+                    println(>>You quit. Your earnings: << + to_str(|balance| - |first balance|) + >>$<<);
+                    exit();
+                }
+                case >>h<< -> {
+                    |player hand| <-+ [draw_card()];
+                    |player total| <- hand_total(|player hand|);
+
+                    println(>>You draw:<<);
+                    println(>>You (Total: << + to_str(|player total|) + >>):<<);
+                    print(ascii_hand(|player hand|));
+                    if (|player total| > 21){
+                        println(>>You bust!<<);
+                        stop;
+                    }
+                }
+                case >>s<< -> { stop; }
+                otherwise -> { next; }
+            }
+        }
+
+        ~~ Dealer turn (if player didn't bust)
+        if (|player total| <= 21) {
+            println(>>Dealer reveals:<<);
+            print(ascii_hand(|dealer hand|));
+            println(>>Dealer total: << + to_str(|dealer total|));
+            while(|dealer total| < 17){
+                |dealer hand| <-+ [draw_card()];
+                |dealer total| <- hand_total(|dealer hand|);
+                println(>>Dealer draws:<<);
+                print(ascii_hand(|dealer hand|));
+                println(>>Dealer total: << + to_str(|dealer total|));
+            }
+        }
+
+        ~~ Determine outcome
+        if (|player total| > 21) {
+            println(>>You lose!<<);
+            |balance| <-- |bet|;
+        } elif (|player total| = 21 and len(|player hand|) = 2) {
+            println(>>Blackjack! You win 1.5x your bet!<<);
+            |balance| <-+ to_int(to_float(|bet|) * 1.5);
+        } elif (|dealer total| > 21) {
+            println(>>Dealer busts! You win!<<);
+            |balance| <-+ |bet|;
+        } elif (|player total| > |dealer total|) {
+            println(>>You win!<<);
+            |balance| <-+ |bet|;
+        } elif (|player total| < |dealer total|){
+            println(>>You lose!<<);
+            |balance| <-- |bet|;
+        } else {
+            println(>>Push! Bet returned.<<);
+        }
+        println(>>New balance: << + to_str(|balance|));
+        if(|balance| = 0) { stop; }
+
+        ~~ Ask if Player wants to continue
+        bool |cont| <- to_bool(input_str(>>Play another round? (Yes/No): <<));
+        if (~|cont|){
+            println(>>You quit. Your earnings: << + to_str(|balance| - |first balance|) + >>$<<);
+            exit();
+        }
     }
-    ret |card|;
+    println(>>Game over!<<);
+    print(>>^x1B[?25h<<);
 }
 
-~~ TODO
+fn draw_card() -> arr'str {
+    ~~ arr: [Rank, Suit]
+    ret [|ranks|[rng(13)], |suits|[rng(4)]];
+}
+
+fn hand_total(arr'arr'str: |hand|) -> int {
+    int |total| <- 0;
+    int |aces| <- 0;
+
+    ~~ Count Ranks
+    for arr'str |card| in |hand| {
+        match(|card|[0]) {
+            case >>A<< -> {
+                |total| <-+ 11;
+                |aces|++;
+            }
+            case >>J<< ->
+            case >>Q<< ->
+            case >>K<< ->
+            case >>10<< -> {
+                |total| <-+ 10;
+            }
+            otherwise -> {
+                ~~ Rank 2-9
+                |total| <-+ (to_int(|card|[0]) - to_int(>>0<<));
+            }
+        }
+    }
+
+    ~~ Adjust aces if over 21
+    while(|total| > 21 and |aces| > 0){
+        |total| <-- 10;
+        |aces|--;
+    }
+
+    ret |total|;
+}
+
+fn ascii_card(arr'str: |card|) -> arr'str {
+    if (len(|card|[0]) = 0) {
+        ret |unknown card|;
+    }
+    int |padding|;
+    if(len(|card|[0]) = 2){
+        |padding| <- 3;
+    } else {
+        |padding| <- 4;
+    }
+    ret [
+        >>┌─────┐<<,
+        >>│<< + |card|[0] + (>> << * |padding|) + >>│<<,
+        >>│  << + |card|[1] + >>  │<<,
+        >>│<< + (>> << * |padding|) + |card|[0] + >>│<<,
+        >>└─────┘<<
+    ];
+}
+
+fn join(arr'str: |list|, str: |end| <- >>^n<<) -> str {
+    str |res|;
+    for str |s| in |list| {
+        |res| <-+ |s| + |end|;
+    }
+    ret |res|;
+}
+
+fn ascii_hand(arr'arr'str: |hand|) -> str {
+    arr'str |lines|[5];
+    for arr'str |card| in |hand| {
+        |card| <- ascii_card(|card|);
+        for int |line| in range(5){
+            |lines|[|line|] <- |lines|[|line|] + |card|[|line|];
+        }
+    }
+    ret join(|lines|);
+}
+
+fn clear_screen() -> none {
+    print(>>^x1B[?25l^x1B[2J^x1B[H<<);
+}

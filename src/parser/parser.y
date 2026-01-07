@@ -253,7 +253,7 @@ for_stmt:
     ;
 
 for_loop_var:
-    type_basic ID_VAR {
+    type_specifier ID_VAR {
         $$ = ast_new_node(NODE_FOR_DECL);
         $$->data.for_decl.type = $1;
         $$->data.for_decl.name = $2;

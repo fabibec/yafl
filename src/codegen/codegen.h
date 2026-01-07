@@ -2,6 +2,10 @@
 #define _CODEGEN_H_
 
 #include "ast.h"
+#include <stdbool.h>
+
+extern bool codegen_inline_builtins;
+
 #include "symtab.h"
 
 void codegen(ast_node *root, char *output_filename);

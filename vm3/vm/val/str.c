@@ -7,15 +7,22 @@
 
 str_t *str_create (void) {
   str_t *s = malloc (sizeof *s);
-  s->buf = malloc(1);
+  s->buf = malloc(16);
   s->len = 0;
+  s->cap = 16;
   s->buf[0] = '\0';
 
   return s;
 }
 
 str_t *str_add_buf (str_t *str, const char *buf, int len) {
-  str->buf = realloc(str->buf, str->len + len + 1);
+  /* Vector-like exponential growth for performance */
+  if (str->len + len + 1 > str->cap) {
+    while (str->len + len + 1 > str->cap) {
+      str->cap *= 2;
+    }
+    str->buf = realloc(str->buf, str->cap);
+  }
   memcpy(str->buf + str->len, buf, len);
   str->len += len;
   str->buf[str->len] = '\0';
@@ -174,7 +181,8 @@ void v_str_serialize (FILE *f, val_t *v) {
 val_t *v_str_deserialize (FILE *f) {
   val_t *v = v_str_create();
   v->u.str->len = read_int(f);
-  v->u.str->buf = malloc(v->u.str->len+1);
+  v->u.str->cap = v->u.str->len + 1;
+  v->u.str->buf = malloc(v->u.str->cap);
   v->u.str->buf[v->u.str->len] = 0;
   if (v->u.str->len > 0) {
     int nr = fread(v->u.str->buf, v->u.str->len, 1, f);
