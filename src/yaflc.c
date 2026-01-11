@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include "ast.h"
 #include "codegen.h"
+#include "optim.h"
 #include "stringbuf.h"
 #include "logger.h"
 
@@ -64,6 +65,7 @@ int main(int argc, char **argv) {
 
     if (result == 0 && root) {
         log_info(-1, "Parse successful!");
+        optimize(root);
         if(logger_get_level() > LOG_INFO){
             ast_print_dot(root, "ast.dot");
         }

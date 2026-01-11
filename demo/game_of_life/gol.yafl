@@ -16,11 +16,9 @@ fn start() -> none {
     }
 }
 
-fn is_digit(str: |chr|) -> bool {
-    if(len(|chr|) ~= 1){ ret No;}
-    int |ascii val| <- to_int(|chr|);
-    if(|ascii val| >= to_int(>>0<<) and |ascii val| <= to_int(>>9<<)){ ret Yes; }
-    ret No;
+fn is_digit(str: |c|) -> bool {
+    int |v| <- to_int(|c|);
+    ret |v| >= to_int(>>0<<) and |v| <= to_int(>>9<<);
 }
 
 fn parse_int_after(str: |line|, str: |substring|) -> int{

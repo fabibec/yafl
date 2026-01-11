@@ -10,7 +10,6 @@
 
 /* Node types */
 typedef enum {
-    NODE_PROGRAM,
     NODE_BLOCK,
 
     NODE_FUNC,
@@ -240,5 +239,6 @@ ast_node *ast_append(ast_node *list, ast_node *node);
 /* Utilities */
 void ast_print_dot(ast_node *node, const char *filename);
 void ast_free(ast_node *node);
+ast_node *ast_clone(ast_node *node);
 
 #endif // _AST_H_

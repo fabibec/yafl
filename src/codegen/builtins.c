@@ -2,62 +2,97 @@
 #include "types.h"
 #include "ast.h"
 #include "codegen.h"
+#include "logger.h"
 #include "type_checking.h"
 #include <stdlib.h>
 #include <limits.h>
 
+/* --- Helpers --- */
+
+/*
+ * Helper to generate code for an argument.
+ * - If node is not NULL (Inline call): evaluates the expression at arg_idx.
+ * - If node is NULL (Function body): generates GETVAR for arg_idx.
+ */
+static void codegen_builtin_arg(prog_t *prog, ast_node *node, func_sym *sym, int arg_idx) {
+    if (node) {
+        // Inline: Find argument expression
+        ast_node *arg = node->data.call.args;
+        for (int i = 0; i < arg_idx && arg; i++) {
+            arg = arg->next;
+        }
+
+        if (arg) {
+            codegen_expr(arg);
+        } else if (sym->default_values && arg_idx < sym->num_params && sym->default_values[arg_idx]) {
+            // Use default value if available
+            codegen_expr(sym->default_values[arg_idx]);
+        } else {
+            // This will only occur if i did a mistake in type checking
+            log_error(-1, "Argument could not be resolved");
+        }
+    } else {
+        // Function body: Argument is a local variable
+        prog_add_num(prog, arg_idx);
+        prog_add_op(prog, GETVAR);
+    }
+}
+
+/*
+ * Helper to push all arguments to the stack (standard order: reverse).
+ * Handles defaults if node is provided.
+ */
+static void codegen_builtin_push_args(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
+    int total_params = sym->num_params;
+
+    // Push missing default arguments (Inline only)
+    if (node && arg_count < total_params) {
+        // Should not happen if validation passed
+        if (!sym->default_values) return;
+        for (int i = total_params - 1; i >= arg_count; i--) {
+            if (sym->default_values[i]) {
+                codegen_expr(sym->default_values[i]);
+            }
+        }
+    }
+
+    // For body generation, arg_count is total_params.
+    int count = (node) ? arg_count : total_params;
+
+    for (int i = count - 1; i >= 0; i--) {
+        codegen_builtin_arg(prog, node, sym, i);
+    }
+}
+
+/* --- Builtins --- */
+
 /* fn print(any: |printable|) -> none */
 void builtins_print(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    yafl_t *arg_type = type_check_expr(node->data.call.args);
-    bool is_range = arg_type && arg_type->base_t == TYPE_RANGE;
-    type_free(arg_type);
+    if (node) {
+        yafl_t *arg_type = type_check_expr(node->data.call.args);
+        bool is_range = arg_type && arg_type->base_t == TYPE_RANGE;
+        type_free(arg_type);
 
-    if(is_range) {
-        /*ast_node *str = ast_new_str("range(");
-        ast_node *print = ast_new_call("print", str);
-        codegen_expr(print);
-        ast_free(str);
-
-        // Start
-        print->data.call.args = node->data.call.args;
-        codegen_expr(print);
-
-        ast_node *str = ast_new_str(",");
-        print->data.call.args = str;
-        codegen_expr(print);
-        ast_free(str);
-
-        // Stop
-
-        ast_node *str = ast_new_str(",");
-        print->data.call.args = str;
-        codegen_expr(print);
-        ast_free(str);
-
-        // Step
-
-        ast_node *str = ast_new_str(")");
-        print->data.call.args = str;
-        codegen_expr(print);
-        ast_free(str);
-
-        prog_add_op(prog, DISCARD);*/
-    } else {
-        codegen_push_func_arguments(node, sym, arg_count);
-        prog_add_num(prog, arg_count);
-        val_t *func_name = v_str_new_cstr("print");
-        int const_id = prog_new_constant(prog, func_name);
-        prog_add_num(prog, const_id);
-        prog_add_op(prog, CONSTANT);
-        prog_add_op(prog, CALL);
-        prog_add_op(prog, DISCARD);
+        if(is_range) {
+             // Placeholder for range printing logic if needed
+        }
     }
+
+    // Standard print
+    codegen_builtin_push_args(prog, node, sym, arg_count);
+    prog_add_num(prog, (node) ? arg_count : sym->num_params);
+    val_t *func_name = v_str_new_cstr("print");
+    int const_id = prog_new_constant(prog, func_name);
+    prog_add_num(prog, const_id);
+    prog_add_op(prog, CONSTANT);
+    prog_add_op(prog, CALL);
+    prog_add_op(prog, DISCARD);
 }
 
 /* fn println(any: |printable|) -> none */
 void builtins_println(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_push_func_arguments(node, sym, arg_count);
-    prog_add_num(prog, arg_count);
+    codegen_builtin_push_args(prog, node, sym, arg_count);
+    prog_add_num(prog, (node) ? arg_count : sym->num_params);
     val_t *func_name = v_str_new_cstr("println");
     int const_id = prog_new_constant(prog, func_name);
     prog_add_num(prog, const_id);
@@ -68,8 +103,15 @@ void builtins_println(prog_t *prog, ast_node *node, func_sym *sym, int arg_count
 
 /* fn input_int(any: |printable str|) -> int */
 void builtins_input_int(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_push_func_arguments(node, sym, arg_count);
-    builtins_print(prog, node, sym, arg_count);
+    codegen_builtin_push_args(prog, node, sym, arg_count);
+
+    prog_add_num(prog, (node) ? arg_count : sym->num_params);
+    val_t *func_name_p = v_str_new_cstr("print");
+    int const_id_p = prog_new_constant(prog, func_name_p);
+    prog_add_num(prog, const_id_p);
+    prog_add_op(prog, CONSTANT);
+    prog_add_op(prog, CALL);
+    prog_add_op(prog, DISCARD);
 
     prog_add_num(prog, 0);
     val_t *func_name = v_str_new_cstr("getint");
@@ -81,8 +123,15 @@ void builtins_input_int(prog_t *prog, ast_node *node, func_sym *sym, int arg_cou
 
 /* fn input_str(any: |printable str|) -> str */
 void builtins_input_str(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_push_func_arguments(node, sym, arg_count);
-    builtins_print(prog, node, sym, arg_count);
+    codegen_builtin_push_args(prog, node, sym, arg_count);
+
+    prog_add_num(prog, (node) ? arg_count : sym->num_params);
+    val_t *func_name_p = v_str_new_cstr("print");
+    int const_id_p = prog_new_constant(prog, func_name_p);
+    prog_add_num(prog, const_id_p);
+    prog_add_op(prog, CONSTANT);
+    prog_add_op(prog, CALL);
+    prog_add_op(prog, DISCARD);
 
     prog_add_num(prog, 0);
     val_t *func_name = v_str_new_cstr("getstring");
@@ -94,17 +143,16 @@ void builtins_input_str(prog_t *prog, ast_node *node, func_sym *sym, int arg_cou
 
 /* fn sleep(int: |duration ms|) -> none */
 void builtins_sleep(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_push_func_arguments(node, sym, arg_count);
+    codegen_builtin_push_args(prog, node, sym, arg_count);
     prog_add_op(prog, SLEEPMS);
 }
 
 /* fn rng(int: |min|, int: |max|) -> int */
 void builtins_rng(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
     // random(max - min) + min
-    ast_node * args = node->data.call.args;
-    codegen_expr(args); // min
+    codegen_builtin_arg(prog, node, sym, 0); // min
     prog_add_op(prog, DUP);
-    codegen_expr(args->next); // max
+    codegen_builtin_arg(prog, node, sym, 1); // max
     prog_add_op(prog, SUB);
     prog_add_num(prog, 1);
     val_t *func_name = v_str_new_cstr("random");
@@ -117,7 +165,7 @@ void builtins_rng(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
 
 /* fn rng(int: |max|) -> int */
 void builtins_rng_max(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_push_func_arguments(node, sym, arg_count);
+    codegen_builtin_push_args(prog, node, sym, arg_count);
     prog_add_num(prog, 1);
     val_t *func_name = v_str_new_cstr("random");
     int const_id = prog_new_constant(prog, func_name);
@@ -128,20 +176,20 @@ void builtins_rng_max(prog_t *prog, ast_node *node, func_sym *sym, int arg_count
 
 /* fn len(arr'any: |arr|) -> int */
 void builtins_len_arr(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_push_func_arguments(node, sym, arg_count);
+    codegen_builtin_push_args(prog, node, sym, arg_count);
     prog_add_op(prog, LEN);
 }
 
 /* fn len(str: |str|) -> int */
 void builtins_len_str(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_push_func_arguments(node, sym, arg_count);
+    codegen_builtin_push_args(prog, node, sym, arg_count);
     prog_add_op(prog, LEN);
 }
 
 /* fn contains(str: |haystack|, str: |needle|) -> bool */
 void builtins_contains(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_push_func_arguments(node, sym, arg_count);
-    prog_add_num(prog, arg_count);
+    codegen_builtin_push_args(prog, node, sym, arg_count);
+    prog_add_num(prog, (node) ? arg_count : sym->num_params);
     val_t *func_name = v_str_new_cstr("CONTAINS");
     int const_id = prog_new_constant(prog, func_name);
     prog_add_num(prog, const_id);
@@ -150,16 +198,14 @@ void builtins_contains(prog_t *prog, ast_node *node, func_sym *sym, int arg_coun
 }
 
 /* fn copy(arr'any: |src|) -> arr'any */
-/* fn copy(range'int: |src|) -> range'int */
-/* fn copy(str: |src|) -> str */
 void builtins_copy(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_push_func_arguments(node, sym, arg_count);
+    codegen_builtin_push_args(prog, node, sym, arg_count);
     prog_add_op(prog, COPY);
 }
 
 /* fn slice(arr'any: |arr|, int: |start|, int: |end| <- 2147483647) -> arr'any */
 void builtins_slice(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_push_func_arguments(node, sym, arg_count);
+    codegen_builtin_push_args(prog, node, sym, arg_count);
     prog_add_num(prog, 3);
     val_t *func_name = v_str_new_cstr("SLICE");
     int const_id = prog_new_constant(prog, func_name);
@@ -175,32 +221,32 @@ void builtins_exit(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
 
 /* --- Casting --- */
 void builtins_to_int(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_push_func_arguments(node, sym, arg_count);
+    codegen_builtin_push_args(prog, node, sym, arg_count);
     prog_add_num(prog, T_NUM);
     prog_add_op(prog, CAST);
 }
 
 void builtins_to_float(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_push_func_arguments(node, sym, arg_count);
+    codegen_builtin_push_args(prog, node, sym, arg_count);
     prog_add_num(prog, T_REAL);
     prog_add_op(prog, CAST);
 }
 
 void builtins_to_bool(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_push_func_arguments(node, sym, arg_count);
+    codegen_builtin_push_args(prog, node, sym, arg_count);
     prog_add_num(prog, T_NUM);
     prog_add_op(prog, CAST);
 }
 
 void builtins_to_str(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_push_func_arguments(node, sym, arg_count);
+    codegen_builtin_push_args(prog, node, sym, arg_count);
     prog_add_num(prog, T_STR);
     prog_add_op(prog, CAST);
 }
 
 void builtins_to_bool_from_str(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
     // >>Yes<< -> Yes, everything else No
-    codegen_push_func_arguments(node, sym, arg_count);
+    codegen_builtin_push_args(prog, node, sym, arg_count);
     val_t *str_yes = v_str_new_cstr("Yes");
     int const_yes = prog_new_constant(prog, str_yes);
     prog_add_num(prog, const_yes);
@@ -210,14 +256,14 @@ void builtins_to_bool_from_str(prog_t *prog, ast_node *node, func_sym *sym, int 
 
 void builtins_to_bool_from_int(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
     // Everything != 0 is Yes
-    codegen_push_func_arguments(node, sym, arg_count);
+    codegen_builtin_push_args(prog, node, sym, arg_count);
     prog_add_num(prog, 0);
     prog_add_op(prog, NOTEQUAL);
 }
 
 void builtins_to_bool_from_float(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
     // Everything != 0.0 is Yes
-    codegen_push_func_arguments(node, sym, arg_count);
+    codegen_builtin_push_args(prog, node, sym, arg_count);
     val_t *fl = v_real_new_double(0.0);
     int const_id = prog_new_constant(prog, fl);
     prog_add_num(prog, const_id);
@@ -226,7 +272,7 @@ void builtins_to_bool_from_float(prog_t *prog, ast_node *node, func_sym *sym, in
 }
 
 void builtins_to_int_from_str(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_push_func_arguments(node, sym, arg_count);
+    codegen_builtin_push_args(prog, node, sym, arg_count);
     prog_add_num(prog, T_NUM);
     prog_add_op(prog, CAST);
 
@@ -249,7 +295,7 @@ void builtins_to_int_from_str(prog_t *prog, ast_node *node, func_sym *sym, int a
 }
 
 void builtins_to_float_from_str(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_push_func_arguments(node, sym, arg_count);
+    codegen_builtin_push_args(prog, node, sym, arg_count);
     prog_add_num(prog, T_REAL);
     prog_add_op(prog, CAST);
 
@@ -276,7 +322,7 @@ void builtins_to_float_from_str(prog_t *prog, ast_node *node, func_sym *sym, int
 
 void builtins_to_str_from_bool(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
     // Yes -> >>Yes<<, No -> >>No<<
-    codegen_push_func_arguments(node, sym, arg_count);
+    codegen_builtin_push_args(prog, node, sym, arg_count);
 
     int label_false = prog_add_num(prog, -1);
     prog_add_op(prog, JUMPF);
@@ -303,26 +349,25 @@ void builtins_to_str_from_bool(prog_t *prog, ast_node *node, func_sym *sym, int 
 
 /* fn range(int: |start|, int: |stop|, int: |step| <- 1) -> arr'int */
 void builtins_range(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    ast_node *arg_start = node->data.call.args;
-    ast_node *arg_stop = arg_start->next;
+    // Order: Step, Stop, Start
+    codegen_builtin_arg(prog, node, sym, 2); // Step
+    codegen_builtin_arg(prog, node, sym, 1); // Stop
+    codegen_builtin_arg(prog, node, sym, 0); // Start
 
-    (arg_count == 2) ? codegen_expr(sym->default_values[2]) : codegen_expr(arg_stop->next);
-    codegen_expr(arg_stop);
-    codegen_expr(arg_start);
     prog_add_op(prog, MKRANGE);
 }
 
 /* fn range(int: |stop|) -> arr'int */
 void builtins_range_stop(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    prog_add_num(prog, 1); // step
-    codegen_expr(node->data.call.args);
-    prog_add_num(prog, 0); // start
+    prog_add_num(prog, 1); // step (hardcoded 1)
+    codegen_builtin_arg(prog, node, sym, 0); // stop
+    prog_add_num(prog, 0); // start (hardcoded 0)
     prog_add_op(prog, MKRANGE);
 }
 
 /* fn args() -> arr'str */
 void builtins_args(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_push_func_arguments(node, sym, arg_count);
+    codegen_builtin_push_args(prog, node, sym, arg_count);
 
     prog_add_num(prog, 0);
     val_t *func_name = v_str_new_cstr("ARGS");
@@ -334,7 +379,7 @@ void builtins_args(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
 
 /* fn read(str: |file path|) -> arr'str */
 void builtins_read(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_push_func_arguments(node, sym, arg_count);
+    codegen_builtin_push_args(prog, node, sym, arg_count);
     prog_add_num(prog, 1);
     val_t *func_name = v_str_new_cstr("READ_FILE");
     int const_id = prog_new_constant(prog, func_name);
@@ -345,7 +390,7 @@ void builtins_read(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
 
 /* fn write(str: |file path|, str: |content|, bool: |append| <- No) -> bool */
 void builtins_write(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_push_func_arguments(node, sym, arg_count);
+    codegen_builtin_push_args(prog, node, sym, arg_count);
     prog_add_num(prog, 3);
     val_t *func_name = v_str_new_cstr("WRITE_FILE");
     int const_id = prog_new_constant(prog, func_name);
@@ -477,4 +522,3 @@ void builtins_register(symtab *s) {
     type_free(arr_any_t);
     type_free(range_t);
 }
-

@@ -1,0 +1,29 @@
+fn start() -> none {
+    ~~ Constant Folding
+    println(1 + 2);
+    println(2 * 3);
+    println(10 / 2);
+    println(5 - 1);
+
+    ~~ Boolean Folding
+    if (Yes) {
+        println(>>True branch<<);
+    } else {
+        println(>>False branch (DCE should remove this)<<);
+    }
+
+    if (1 = 2) {
+        println(>>Impossible branch<<);
+    } else {
+        println(>>Else branch<<);
+    }
+
+    ~~ DCE after return
+    test_dce();
+}
+
+fn test_dce() -> none {
+    println(>>Before return<<);
+    ret;
+    println(>>After return (Dead code)<<);
+}
