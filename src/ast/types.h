@@ -1,7 +1,8 @@
 #ifndef _TYPES_H_
 #define _TYPES_H_
 #include <stddef.h>
-/* Type system for the yafl lang */
+
+/* Type system */
 
 typedef enum {
     TYPE_VOID,

@@ -1,6 +1,6 @@
-#include "loop_stack.h"
 #include "codegen.h"
 #include "logger.h"
+#include "loop_stack.h"
 #include <stdbool.h>
 
 loop_ctx *loop_stack = NULL;

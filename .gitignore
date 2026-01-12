@@ -9,6 +9,7 @@ src/build/*
 **/*.yaflb
 **/*.o
 **/*.a
+vm
 
 # Allow SVG and YAFLB in demo/
 !demo/**/*.svg

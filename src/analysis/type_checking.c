@@ -207,7 +207,7 @@ yafl_t* type_check_expr(ast_node *node) {
             yafl_t *val_type = type_check_expr(node->data.arr_fill.elements);
             return type_new_composite(val_type);
         }
-        case NODE_DEFAULT:
+        case NODE_DEFAULT_VAL:
             return type_clone(node->data.default_val.type);
         case NODE_CAST:
             return type_clone(node->data.cast.type);

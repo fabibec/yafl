@@ -171,7 +171,8 @@ case_item:
         $$ = ast_new_case($2, NULL);
     }
     | KW_DEFAULT S_RARROW compound_stmt {
-        $$ = ast_new_case(NULL, $3); /* Default case has NULL expr */
+        /* Default case has NULL expr */
+        $$ = ast_new_case(NULL, $3);
     }
     ;
 
@@ -188,7 +189,7 @@ var_decl_stmt:
             yyerror("Array size declaration only valid for array types");
             $$ = NULL;
         } else {
-            // arr'int a[5] -> a = [default(int)] * 5
+            // arr'int a[5] represented as: a <- [default(int)] * 5
             yafl_t *inner = type_clone($1->comp_t);
             ast_node *def_val = ast_new_default(inner);
             ast_node *fill_expr = ast_new_arr_fill(def_val, $4);
@@ -216,6 +217,7 @@ assignment_stmt:
     | ID_VAR S_LARROW_MOD expr ';' {
         $$ = ast_new_assign($1, ast_new_binary(OP_MOD, ast_new_var(strdup($1)), $3));
     }
+    /* primary to allow multi dimension arrays */
     | primary '[' expr ']' S_LARROW expr ';' {
         $$ = ast_new_arr_assign($1, $3, $6);
     }
@@ -245,7 +247,7 @@ opt_else:
     | %empty { $$ = NULL; }
     ;
 
-/* --- FOR loops --- */
+/* --- Loops --- */
 for_stmt:
     KW_FOR for_loop_var KW_IN expr compound_stmt {
         $$ = ast_new_for($2, $4, $5);
@@ -285,6 +287,7 @@ expr:
     | expr '-' expr { $$ = ast_new_binary(OP_SUB, $1, $3); }
     | expr '*' expr {
         if ($1->type == NODE_ARR_LIT) {
+            // [5] * 2 -> [5, 5]
             $$ = ast_new_arr_fill($1->data.arr_lit.elements, $3);
             $1->data.arr_lit.elements = NULL;
             ast_free($1);
@@ -324,6 +327,7 @@ arr_expr:
     '[' expr_list ']' {
         $$ = ast_new_arr_lit($2);
     }
+    /* primary to allow multi dimension arrays */
     | primary '[' expr ']' {
         $$ = ast_new_arr_idx($1, $3);
     }

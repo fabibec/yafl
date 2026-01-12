@@ -1,10 +1,10 @@
-#include "optim.h"
 #include "ast.h"
-#include "types.h"
 #include "logger.h"
-#include <string.h>
-#include <stdlib.h>
+#include "optim.h"
+#include "types.h"
 #include <math.h>
+#include <stdlib.h>
+#include <string.h>
 
 static bool changed = false;
 
@@ -14,6 +14,19 @@ static bool is_constant(ast_node *node) {
     if (!node) return false;
     return (node->type == NODE_INT || node->type == NODE_FLOAT ||
             node->type == NODE_BOOL || node->type == NODE_STR);
+}
+
+static bool nodes_are_equal(ast_node *a, ast_node *b) {
+    if (!a || !b) return false;
+    if (a->type != b->type) return false;
+
+    switch (a->type) {
+        case NODE_INT: return a->data.integer.value == b->data.integer.value;
+        case NODE_FLOAT: return a->data.float_nr.value == b->data.float_nr.value;
+        case NODE_BOOL: return a->data.boolean.value == b->data.boolean.value;
+        case NODE_STR: return strcmp(a->data.string.value, b->data.string.value) == 0;
+        default: return false;
+    }
 }
 
 /* --- Constant Folding --- */
@@ -90,6 +103,7 @@ static ast_node *fold_binary(ast_node *node) {
         changed = true;
         res->line = node->line;
         res->next = node->next;
+        node->next = NULL;
         ast_free(node);
         return res;
     }
@@ -119,6 +133,7 @@ static ast_node *fold_unary(ast_node *node) {
         changed = true;
         res->line = node->line;
         res->next = node->next;
+        node->next = NULL;
         ast_free(node);
         return res;
     }
@@ -130,8 +145,12 @@ static ast_node *fold_unary(ast_node *node) {
 static ast_node *traverse(ast_node *node) {
     if (!node) return NULL;
 
-    // Process children first (bottom-up)
-    if (node->next) node->next = traverse(node->next);
+    // IMPORTANT: Process the NEXT node in the chain FIRST.
+    // This ensures we have a stable pointer to the rest of the list
+    // before we potentially free or replace the CURRENT node.
+    if (node->next) {
+        node->next = traverse(node->next);
+    }
 
     switch (node->type) {
         case NODE_BINARY:
@@ -154,16 +173,15 @@ static ast_node *traverse(ast_node *node) {
                 ast_node *replacement;
                 if (cond) {
                     replacement = node->data.if_stmt.then_block;
+                    node->data.if_stmt.then_block = NULL;
                 } else {
                     replacement = node->data.if_stmt.else_block;
+                    node->data.if_stmt.else_block = NULL;
                 }
 
                 ast_node *chain = node->next;
-                ast_free(node->data.if_stmt.condition);
-                // Free the unused branch
-                if (cond) ast_free(node->data.if_stmt.else_block);
-                else ast_free(node->data.if_stmt.then_block);
-                free(node);
+                node->next = NULL;
+                ast_free(node);
 
                 if (replacement) {
                     ast_append(replacement, chain);
@@ -174,6 +192,72 @@ static ast_node *traverse(ast_node *node) {
                     return chain;
                 }
             }
+            break;
+
+        case NODE_MATCH:
+            node->data.match_stmt.expr = traverse(node->data.match_stmt.expr);
+            node->data.match_stmt.cases = traverse(node->data.match_stmt.cases);
+
+            // DCE: If expr is constant, pick the right case
+            if (is_constant(node->data.match_stmt.expr)) {
+                ast_node *match_val = node->data.match_stmt.expr;
+                ast_node *curr_case = node->data.match_stmt.cases;
+                ast_node *selected_body = NULL;
+                bool found = false;
+                ast_node *default_body = NULL;
+
+                while (curr_case) {
+                    if (curr_case->type == NODE_CASE) {
+                        ast_node *case_expr = curr_case->data.case_stmt.expr;
+                        // Default case
+                        if (!case_expr) {
+                            default_body = curr_case;
+                        }
+                        // Constant Match
+                        else if (nodes_are_equal(match_val, case_expr)) {
+                            // Search for next body if fallthrough
+                            while(curr_case && !curr_case->data.case_stmt.body)
+                                curr_case = curr_case->next;
+                            if(curr_case) {
+                                selected_body = curr_case->data.case_stmt.body;
+                                curr_case->data.case_stmt.body = NULL;
+                                found = true;
+                            }
+                            break;
+                        }
+                    }
+                    curr_case = curr_case->next;
+                }
+
+                if (!found && default_body) {
+                    selected_body = default_body->data.case_stmt.body;
+                    default_body->data.case_stmt.body = NULL;
+                    found = true;
+                }
+
+                ast_node *chain = node->next;
+                node->next = NULL;
+                free(node);
+
+                if (found && selected_body) {
+                    ast_append(selected_body, chain);
+                    changed = true;
+                    return selected_body;
+                } else {
+                    // Case found but no body
+                    // No match, no default -> remove entire match
+                    changed = true;
+                    return chain;
+                }
+            }
+            break;
+
+        case NODE_CASE:
+            // expr may not yet be a literal
+            if (node->data.case_stmt.expr)
+                node->data.case_stmt.expr = traverse(node->data.case_stmt.expr);
+            if (node->data.case_stmt.body)
+                node->data.case_stmt.body = traverse(node->data.case_stmt.body);
             break;
 
         case NODE_BLOCK:
@@ -222,6 +306,17 @@ static ast_node *traverse(ast_node *node) {
         case NODE_WHILE:
             node->data.while_loop.condition = traverse(node->data.while_loop.condition);
             node->data.while_loop.body = traverse(node->data.while_loop.body);
+
+            // DCE: Constant false condition
+            if (node->data.while_loop.condition->type == NODE_BOOL) {
+                if (node->data.while_loop.condition->data.boolean.value == false) {
+                    ast_node *chain = node->next;
+                    node->next = NULL;
+                    ast_free(node);
+                    changed = true;
+                    return chain;
+                }
+            }
             break;
 
         case NODE_FOR:
@@ -229,16 +324,20 @@ static ast_node *traverse(ast_node *node) {
             node->data.for_loop.body = traverse(node->data.for_loop.body);
             break;
 
+        case NODE_FOR_DECL:
+        case NODE_FOR_VAR:
+        case NODE_PARAM:
+            // Nothing to optimize here
+            break;
+
         default:
             break;
     }
-
     return node;
 }
 
 void optimize(ast_node *root) {
     int passes = 0;
-
     do {
         changed = false;
         root = traverse(root);

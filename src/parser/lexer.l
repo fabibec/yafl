@@ -64,7 +64,6 @@ IGNORE [ \t\n]+
 }
 
 
-
 ">>" {
     BEGIN(STRING_STATE);
 }

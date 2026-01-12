@@ -1,10 +1,11 @@
 #ifndef _LOOP_STACK_H_
 #define _LOOP_STACK_H_
-/* Loop stack for break/continue */
-#include <stdlib.h>
+
 #include "prog.h"
 #include "symtab.h"
+#include <stdlib.h>
 
+/* Loop stack for stop/next */
 extern prog_t *prog;
 extern symtab *prog_symtab;
 

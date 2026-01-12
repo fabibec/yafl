@@ -1,4 +1,0 @@
-fn start() -> int {
-    println(>>Hello World!<<);
-    ret #0;
-}

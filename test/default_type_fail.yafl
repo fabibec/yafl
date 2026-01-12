@@ -1,9 +1,0 @@
-fn test(int: |a| <- >>string<<) -> none {
-    println(|a|);
-}
-
-fn start() -> int {
-    test(1);
-    test();
-    ret 0;
-}

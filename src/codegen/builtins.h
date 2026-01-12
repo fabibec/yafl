@@ -1,7 +1,7 @@
 #ifndef _BUILTINS_H_
 #define _BUILTINS_H_
-/* Codegen for builtin functions */
 #include "symtab.h"
+/* Codegen for builtins functions */
 
 void builtins_register(symtab *s);
 

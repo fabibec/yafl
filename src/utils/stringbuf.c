@@ -1,7 +1,7 @@
+#include "stringbuf.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "stringbuf.h"
 
 char *str_buffer = NULL;
 static int str_size = 0;

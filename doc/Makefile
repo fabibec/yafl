@@ -1,4 +1,5 @@
 PDF=report
+OUTDIR := build
 
 all:
 	latexmk $(PDF).tex

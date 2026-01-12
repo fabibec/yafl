@@ -1,10 +1,10 @@
 #ifndef _TYPE_CHECKING_H_
 #define _TYPE_CHECKING_H_
-
 #include "ast.h"
 #include "symtab.h"
 #include "types.h"
 #include <stdbool.h>
+/* Static type checking */
 
 /* Get type of expression (and check validity recursively) */
 yafl_t* type_check_expr(ast_node *node);

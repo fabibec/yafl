@@ -1,4 +1,0 @@
-fn start() -> none {
-    float |a| <- to_float(3) / to_float(2);
-    println(|a|);
-}

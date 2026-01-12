@@ -1,6 +1,8 @@
 fn start() -> none {
-        ~~ int |x| <- >>hello<<;   ~~ Error: Assign string to int
-        ~~ bool |b| <- 10;         ~~ Error: Assign int to bool
+    ~~ int |x| <- >>hello<<;   ~~ Error: Assign string to int
+    ~~ bool |b| <- 10;         ~~ Error: Assign int to bool
+
+    ~~ int |x| <- 4 + >>hello<<; ~~ Error: Mixed type in addition
 
     ~~ if (10) {               ~~ Error: Condition must be bool
     ~~    print(>>bad<<);
@@ -17,3 +19,4 @@ fn test_arrays() -> none {
     arr'int |x| <- [1, 2, 3]; ~~ >>3<<]; ~~ Error: Mixed types in array literal
     |x|[0] <- >>str<<;            ~~ Error: Assign string to int array element
 }
+

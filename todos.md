@@ -12,7 +12,7 @@
 - [x] arr deepcopy: copy()
 - [x] arr slice: slice()
 - [x] full static type checking <br>
-- [ ] basic optimization <br>
-- [ ] cli for yaflc and yafl
+- [x] basic optimization <br>
+- [x] cli for yaflc and yafl
 - [ ] cleanup <br>
 - [ ] test more <br>

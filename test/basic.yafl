@@ -1,4 +1,16 @@
+{-
+    Basic Test
+    Tests recursion, basic operations, and string concatenation.
+-}
+
 str |app name| <- >>Basic Test<<;
+
+fn start() -> int {
+    print(>>--- Basic Test ---<<);
+    ops();
+    recur(2);
+    ret 0;
+}
 
 fn recur(int: |i|) -> none {
     if (|i| < #5){
@@ -36,11 +48,4 @@ fn ops() -> none {
     }
 
     print(>>This program is called: << + |app name|);
-}
-
-fn start() -> int {
-    print(>>--- Basic Test ---<<);
-    ops();
-    recur(2);
-    ret 0;
 }

@@ -11,43 +11,35 @@
 
 /*
  * Helper to generate code for an argument.
- * - If node is not NULL (Inline call): evaluates the expression at arg_idx.
- * - If node is NULL (Function body): generates GETVAR for arg_idx.
+ * Assumes node is not NULL (Inline call only).
  */
 static void codegen_builtin_arg(prog_t *prog, ast_node *node, func_sym *sym, int arg_idx) {
-    if (node) {
-        // Inline: Find argument expression
-        ast_node *arg = node->data.call.args;
-        for (int i = 0; i < arg_idx && arg; i++) {
-            arg = arg->next;
-        }
+    // Inline: Find argument expression
+    ast_node *arg = node->data.call.args;
+    for (int i = 0; i < arg_idx && arg; i++) {
+        arg = arg->next;
+    }
 
-        if (arg) {
-            codegen_expr(arg);
-        } else if (sym->default_values && arg_idx < sym->num_params && sym->default_values[arg_idx]) {
-            // Use default value if available
-            codegen_expr(sym->default_values[arg_idx]);
-        } else {
-            // This will only occur if i did a mistake in type checking
-            log_error(-1, "Argument could not be resolved");
-        }
+    if (arg) {
+        codegen_expr(arg);
+    } else if (sym->default_values && arg_idx < sym->num_params && sym->default_values[arg_idx]) {
+        // Use default value if available
+        codegen_expr(sym->default_values[arg_idx]);
     } else {
-        // Function body: Argument is a local variable
-        prog_add_num(prog, arg_idx);
-        prog_add_op(prog, GETVAR);
+        // This will only occur if i did a mistake in type checking
+        log_error(-1, "Argument could not be resolved");
     }
 }
 
 /*
  * Helper to push all arguments to the stack (standard order: reverse).
- * Handles defaults if node is provided.
+ * Handles defaults.
  */
 static void codegen_builtin_push_args(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
     int total_params = sym->num_params;
 
-    // Push missing default arguments (Inline only)
-    if (node && arg_count < total_params) {
-        // Should not happen if validation passed
+    // Push missing default arguments
+    if (arg_count < total_params) {
         if (!sym->default_values) return;
         for (int i = total_params - 1; i >= arg_count; i--) {
             if (sym->default_values[i]) {
@@ -56,31 +48,97 @@ static void codegen_builtin_push_args(prog_t *prog, ast_node *node, func_sym *sy
         }
     }
 
-    // For body generation, arg_count is total_params.
-    int count = (node) ? arg_count : total_params;
+    int count = arg_count;
 
     for (int i = count - 1; i >= 0; i--) {
         codegen_builtin_arg(prog, node, sym, i);
     }
 }
 
+/* Helper to print a constant string */
+static void codegen_print_str(prog_t *prog, char *str) {
+    val_t *v = v_str_new_cstr(str);
+    int const_id = prog_new_constant(prog, v);
+    prog_add_num(prog, const_id);
+    prog_add_op(prog, CONSTANT);
+
+    prog_add_num(prog, 1);
+    val_t *func_name = v_str_new_cstr("print");
+    int const_p = prog_new_constant(prog, func_name);
+    prog_add_num(prog, const_p);
+    prog_add_op(prog, CONSTANT);
+    prog_add_op(prog, CALL);
+    prog_add_op(prog, DISCARD);
+}
+
+/* Helper to print the range components */
+static void codegen_print_range(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
+    codegen_builtin_arg(prog, node, sym, 0);
+
+    codegen_print_str(prog, "range(");
+
+    prog_add_op(prog, DUP);
+    prog_add_num(prog, 1);
+    prog_add_op(prog, SWAP);
+    prog_add_op(prog, INDEX1); // -> Start
+
+    prog_add_num(prog, 1);
+    val_t *func_name = v_str_new_cstr("print");
+    int const_p = prog_new_constant(prog, func_name);
+    prog_add_num(prog, const_p);
+    prog_add_op(prog, CONSTANT);
+    prog_add_op(prog, CALL);
+    prog_add_op(prog, DISCARD);
+
+
+    codegen_print_str(prog, ", ");
+
+    prog_add_op(prog, DUP);
+    prog_add_num(prog, 2);
+    prog_add_op(prog, SWAP);
+    prog_add_op(prog, INDEX1); // -> Stop
+
+    prog_add_num(prog, 1);
+    // Reuse "print" constant
+    prog_add_num(prog, const_p);
+    prog_add_op(prog, CONSTANT);
+    prog_add_op(prog, CALL);
+    prog_add_op(prog, DISCARD);
+
+    codegen_print_str(prog, ", ");
+
+    prog_add_op(prog, DUP);
+    prog_add_num(prog, 3);
+    prog_add_op(prog, SWAP);
+    prog_add_op(prog, INDEX1); // -> Step
+
+    prog_add_num(prog, 1);
+    // Reuse "print" constant
+    prog_add_num(prog, const_p);
+    prog_add_op(prog, CONSTANT);
+    prog_add_op(prog, CALL);
+    prog_add_op(prog, DISCARD);
+
+    codegen_print_str(prog, ")");
+    prog_add_op(prog, DISCARD);
+}
+
 /* --- Builtins --- */
 
 /* fn print(any: |printable|) -> none */
 void builtins_print(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    if (node) {
-        yafl_t *arg_type = type_check_expr(node->data.call.args);
-        bool is_range = arg_type && arg_type->base_t == TYPE_RANGE;
-        type_free(arg_type);
+    yafl_t *arg_type = type_check_expr(node->data.call.args);
+    bool is_range = arg_type && arg_type->base_t == TYPE_RANGE;
+    type_free(arg_type);
 
-        if(is_range) {
-             // Placeholder for range printing logic if needed
-        }
+    if(is_range) {
+        codegen_print_range(prog, node, sym, arg_count);
+        return;
     }
 
     // Standard print
     codegen_builtin_push_args(prog, node, sym, arg_count);
-    prog_add_num(prog, (node) ? arg_count : sym->num_params);
+    prog_add_num(prog, arg_count);
     val_t *func_name = v_str_new_cstr("print");
     int const_id = prog_new_constant(prog, func_name);
     prog_add_num(prog, const_id);
@@ -91,8 +149,19 @@ void builtins_print(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) 
 
 /* fn println(any: |printable|) -> none */
 void builtins_println(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
+    yafl_t *arg_type = type_check_expr(node->data.call.args);
+    bool is_range = arg_type && arg_type->base_t == TYPE_RANGE;
+    type_free(arg_type);
+
+    if(is_range) {
+        codegen_print_range(prog, node, sym, arg_count);
+        // Print newline
+        codegen_print_str(prog, "\n");
+        return;
+    }
+
     codegen_builtin_push_args(prog, node, sym, arg_count);
-    prog_add_num(prog, (node) ? arg_count : sym->num_params);
+    prog_add_num(prog, arg_count);
     val_t *func_name = v_str_new_cstr("println");
     int const_id = prog_new_constant(prog, func_name);
     prog_add_num(prog, const_id);
@@ -105,7 +174,7 @@ void builtins_println(prog_t *prog, ast_node *node, func_sym *sym, int arg_count
 void builtins_input_int(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
     codegen_builtin_push_args(prog, node, sym, arg_count);
 
-    prog_add_num(prog, (node) ? arg_count : sym->num_params);
+    prog_add_num(prog, arg_count);
     val_t *func_name_p = v_str_new_cstr("print");
     int const_id_p = prog_new_constant(prog, func_name_p);
     prog_add_num(prog, const_id_p);
@@ -125,7 +194,7 @@ void builtins_input_int(prog_t *prog, ast_node *node, func_sym *sym, int arg_cou
 void builtins_input_str(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
     codegen_builtin_push_args(prog, node, sym, arg_count);
 
-    prog_add_num(prog, (node) ? arg_count : sym->num_params);
+    prog_add_num(prog, arg_count);
     val_t *func_name_p = v_str_new_cstr("print");
     int const_id_p = prog_new_constant(prog, func_name_p);
     prog_add_num(prog, const_id_p);
@@ -189,7 +258,7 @@ void builtins_len_str(prog_t *prog, ast_node *node, func_sym *sym, int arg_count
 /* fn contains(str: |haystack|, str: |needle|) -> bool */
 void builtins_contains(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
     codegen_builtin_push_args(prog, node, sym, arg_count);
-    prog_add_num(prog, (node) ? arg_count : sym->num_params);
+    prog_add_num(prog, arg_count);
     val_t *func_name = v_str_new_cstr("CONTAINS");
     int const_id = prog_new_constant(prog, func_name);
     prog_add_num(prog, const_id);
@@ -399,7 +468,15 @@ void builtins_write(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) 
     prog_add_op(prog, CALL);
 }
 
+/* fn is_digit(str: |c|) -> bool
+void builtins_write(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
+}*/
+
 void builtins_register(symtab *s) {
+    // args() -> arr'str
+    yafl_t *arr_str_t = type_new_composite(type_new_simple(TYPE_STR));
+    symtab_add_builtin(s, "args", arr_str_t, 0, NULL, NULL, builtins_args);
+
     // print<ln>(any) -> none
     yafl_t *none_t = type_new_simple(TYPE_VOID);
     yafl_t *any_t = type_new_simple(TYPE_GENERIC);
@@ -408,10 +485,6 @@ void builtins_register(symtab *s) {
 
     symtab_add_builtin(s, "print", none_t, 1, print_args, NULL, builtins_print);
     symtab_add_builtin(s, "println", none_t, 1, print_args, NULL, builtins_println);
-
-    // args() -> arr'str
-    yafl_t *arr_str_t = type_new_composite(type_new_simple(TYPE_STR));
-    symtab_add_builtin(s, "args", arr_str_t, 0, NULL, NULL, builtins_args);
 
     // read(path) -> arr'str
     yafl_t *str_t = type_new_simple(TYPE_STR);

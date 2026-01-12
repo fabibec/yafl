@@ -1,23 +1,22 @@
 #include "codegen.h"
+#include "logger.h"
 #include "loop_stack.h"
-#include "symtab.h"
 #include "prog.h"
+#include "symtab.h"
+#include "type_checking.h"
 #include "utils.h"
 #include "vector.h"
-#include "logger.h"
-#include "type_checking.h"
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdarg.h>
 
 /* Global state */
 prog_t *prog = NULL;
 symtab *prog_symtab = NULL;
 int temp_var_counter = 0;
 yafl_t *current_func_ret_type = NULL;
-bool codegen_inline_builtins = true;
 
 /* Forward declarations */
 static void codegen_stmt(ast_node *node);
@@ -113,7 +112,7 @@ void codegen_list_reverse(ast_node *elem, int *count) {
     if(count) (*count)++;
 }
 
-void codegen_push_func_arguments(ast_node *node, func_sym *sym, int arg_count){
+static void codegen_push_func_arguments(ast_node *node, func_sym *sym, int arg_count){
     // Generate default values for missing arguments (pushed first -> bottom of stack)
     if (arg_count < sym->num_params) {
         if (!sym->default_values) {
@@ -142,8 +141,6 @@ static void codegen_set_get_var(char *name, int line, enum opcodes op_type){
         prog_add_op(prog, (sym->is_global) ? SETGLOBAL : SETVAR);
     }
 }
-
-
 
 void codegen_expr(ast_node *node) {
     if (!node) return;
@@ -249,7 +246,7 @@ void codegen_expr(ast_node *node) {
             break;
         }
 
-        case NODE_DEFAULT: {
+        case NODE_DEFAULT_VAL: {
             codegen_zero_init(node->data.default_val.type, node->line);
             break;
         }
@@ -284,7 +281,7 @@ void codegen_expr(ast_node *node) {
             int jmp_out_pc = prog_add_num(prog, -1); // Placeholder
             prog_add_op(prog, JUMPF);
 
-            // Push elements in reverse order for MKARRAY
+            // Generate elements in reverse order for MKARRAY
             codegen_list_reverse(node->data.arr_fill.elements, NULL);
 
             // Increment idx
@@ -766,12 +763,28 @@ void codegen(ast_node *root, char *filename) {
 
             // Type check default arguments
             ast_node *param_node = node->data.func.params;
+            bool seen_default = false;
+
             for (int i = 0; i < num_params; i++) {
                 if (defaults[i]) {
+                    seen_default = true;
+
                     yafl_t *def_t = type_check_expr(defaults[i]);
-                    type_check_compatibility(param_types[i], def_t, param_node->line, "default argument");
+                    type_check_compatibility(
+                        param_types[i],
+                        def_t,
+                        param_node->line,
+                        "default argument"
+                    );
                     type_free(def_t);
+                } else if (seen_default) {
+                    log_error(
+                        param_node->line,
+                        "No default argument provided for \'%s\'",
+                        param_node->data.param.name
+                    );
                 }
+
                 param_node = param_node->next;
             }
 

@@ -1,6 +1,5 @@
 #ifndef _ARITH_H_
 #define _ARITH_H_
-
 /* Enums for Unary and Binary operations */
 
 typedef enum {

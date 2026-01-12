@@ -1,27 +1,32 @@
+{-
+    For Range Test
+    Tests various forms of the range function and iterating over array literals.
+-}
+
 fn start() -> int {
-    ~~ 1. Range(end)
+    ~~ range(end)
     print(>>for i in range(5):<<);
     for int |i| in range(5) {
         print(|i|);
     }
 
-    ~~ 2. Range(start, end)
+    ~~ range(start, end)
     print(>>for i in range(2, 5):<<);
     for int |i| in range(2, 5) {
         print(|i|);
     }
 
-    ~~ 3. Range(start, end, step)
+    ~~ range(start, end, step)
     print(>>for i in range(0, 10, 2):<<);
     for int |i| in range(0, 10, 2) {
         print(|i|);
     }
 
-    ~~ 4. Iterate over array literal
+    ~~ iterate over array literal
     print(>>for x in [10, 20, 30]:<<);
     for int |x| in [10, 20, 30] {
         print(|x|);
     }
-    
+
     ret 0;
 }

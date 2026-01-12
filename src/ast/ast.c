@@ -49,7 +49,6 @@ ast_node *ast_new_call(char *name, ast_node *args) {
     return node;
 }
 
-
 ast_node *ast_new_decl(yafl_t *type, char *name, ast_node *init) {
     ast_node *node = ast_new_node(NODE_DECL);
     node->data.decl.type = type;
@@ -180,7 +179,7 @@ ast_node *ast_new_cast(yafl_t *type, ast_node *expr) {
 }
 
 ast_node *ast_new_default(yafl_t *type) {
-    ast_node *node = ast_new_node(NODE_DEFAULT);
+    ast_node *node = ast_new_node(NODE_DEFAULT_VAL);
     node->data.default_val.type = type;
     return node;
 }
@@ -348,7 +347,7 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
             snprintf(label, sizeof(label), "MATCH");
             break;
         case NODE_CASE:
-            snprintf(label, sizeof(label), "CASE");
+            snprintf(label, sizeof(label), (!node->data.case_stmt.expr) ? "OTHERWISE" : "CASE");
             break;
 
 
@@ -426,9 +425,9 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
             type_to_str(node->data.cast.type, type_buf, sizeof(type_buf));
             snprintf(label, sizeof(label), "CAST\\n%s", type_buf);
             break;
-        case NODE_DEFAULT:
+        case NODE_DEFAULT_VAL:
             type_to_str(node->data.default_val.type, type_buf, sizeof(type_buf));
-            snprintf(label, sizeof(label), "DEFAULT\\n%s", type_buf);
+            snprintf(label, sizeof(label), "OTHERWISE\\n%s", type_buf);
             break;
         default:
             snprintf(label, sizeof(label), "%s", node_type_str(node->type));
@@ -623,16 +622,16 @@ void ast_print_dot(ast_node *node, const char *filename) {
     fprintf(fp, "}\n");
     fclose(fp);
 
-    log_debug(-1, "AST written to %s\n", filename);
+    log_debug(-1, "AST written to %s", filename);
 
     // Convert to svg automatically
     char cmd[512];
     snprintf(cmd, sizeof(cmd), "dot -Tsvg %s -o ast.svg", filename);
-    log_debug(-1, "Generating SVG: %s\n", cmd);
+    log_debug(-1, "Generating SVG: %s", cmd);
     if (system(cmd) != 0) {
         log_error(-1, "Error generating SVG. Is 'graphviz' installed?\n");
     } else {
-        log_debug(-1, "SVG generated at ast.svg\n");
+        log_debug(-1, "SVG generated at ast.svg");
     }
 }
 
@@ -671,7 +670,7 @@ void ast_free(ast_node *node) {
             type_free(node->data.cast.type);
             ast_free(node->data.cast.expr);
             break;
-        case NODE_DEFAULT:
+        case NODE_DEFAULT_VAL:
             type_free(node->data.default_val.type);
             break;
 

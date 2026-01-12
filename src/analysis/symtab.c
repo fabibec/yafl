@@ -1,14 +1,13 @@
+#include "ast.h"
+#include "builtins.h"
 #include "symtab.h"
 #include "utils.h"
-#include "builtins.h"
-#include "ast.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 
 static void var_sym_free(void *ptr) {
     var_sym *sym = (var_sym*)ptr;
-    // printf("Freeing var %s\n", sym->name);
     free(sym->name);
     type_free(sym->type);
     free(sym);
@@ -29,13 +28,12 @@ static void func_sym_free(void *ptr) {
             free(sym->param_types);
         }
         if (sym->default_values) {
-            // we own the default value AST nodes (created in builtins.c)
+            // We own the default value AST nodes (created in builtins.c)
             if (sym->is_builtin) {
                 for (int i = 0; i < sym->num_params; i++) {
                     ast_free(sym->default_values[i]);
                 }
             }
-            // owned by the AST root
             free(sym->default_values);
         }
 
@@ -153,7 +151,8 @@ var_sym *symtab_lookup_var(symtab *table, const char *name) {
 }
 
 func_sym *symtab_add_func(symtab *table, const char *name, yafl_t *ret_type,
-                           int num_params, yafl_t **param_types, struct ast_node **default_values, int pc) {
+        int num_params, yafl_t **param_types, struct ast_node **default_values, int pc) {
+
     func_sym *existing = hashmap_get(table->funcs, name);
 
     // Check if this exact signature already exists
@@ -398,21 +397,5 @@ void symtab_dump(symtab *table) {
             entry = entry->next;
         }
     }
-
-    printf("\n[Variables (Current Scope Chain)]\n");
-    for (scope *s = table->current; s; s = s->parent) {
-        printf("  Scope Level %d:\n", s->level);
-        hashmap *vmap = s->vars;
-        for (int i = 0; i < vmap->capacity; i++) {
-            hashmap_entry *entry = vmap->buckets[i];
-            while (entry) {
-                var_sym *vs = (var_sym*)entry->value;
-                type_to_str(vs->type, type_buf, sizeof(type_buf));
-                printf("    %s: %s (offset=%d)\n", vs->name, type_buf, vs->nr);
-                entry = entry->next;
-            }
-        }
-    }
-
     printf("-------------------------\n");
 }

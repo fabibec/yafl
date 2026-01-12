@@ -1,26 +1,64 @@
+{-
+    Array Test
+    Tests array creation, indexing, assignment, and length.
+-}
+
 fn start() -> int {
-    print(>>--- Array Test ---<<);
+    println(>>--- Array Test ---<<);
 
-    print(>>1. Simple Int Array<<);
+    ~~ Zero init
+    arr'int |arr_sugar|[4];
+    println(>>Sugar:<<);
+    println(|arr_sugar|);
+
+    ~~ Simple Int Array
     arr'int |a| <- [1, 2, 3];
-    print(|a|);
+    println(|a|);
+    print_len_here(|a|);
 
-    print(>>2. Simple Str Array<<);
+    ~~ Simple Str Array
     arr'str |b| <- [>>Hello<<, >>World<<];
-    print(|b|);
+    println(|b|);
 
-    print(>>3. Empty Array (Zero Init)<<);
+    ~~ Empty Array (Zero Init)
     arr'int |c|;
-    print(|c|);
+    println(|c|);
+    print_len_here(|c|);
 
-    print(>>4. Nested Array<<);
+    ~~ Nested Array
     arr'arr'int |d| <- [[1, 2], [3, 4]];
-    print(|d|);
+    println(|d|);
 
-    print(>>5. Array Assignment<<);
+    ~~ Array Assignment
     |a|[0] <- 100;
-    print(|a|);
+    println(|a|);
 
-    print(>>--- End Array Test ---<<);
+    ~~ Sized init via multiplication syntax [val] * count
+    arr'int |sized| <- [0] * 5;
+    println(>>Sized:<<);
+    println(|sized|);
+
+    ~~ Matrix with multiplication syntax
+    arr'arr'int |matrix| <- [[4, 5]] * 3;
+    println(>>Matrix:<<);
+    println(|matrix|);
+
+    ~~ Independence check
+    |matrix|[0][0] <- 99;
+    println(>>After matrix[0][0] <- 99:<<);
+    println(|matrix|[0]);
+    println(|matrix|[1]);
+
+    ~~ Allowed Array concatenation
+    println(|arr_sugar| + |a|);
+
+    ~~ Type error
+    ~~ println(|arr_sugar| + |b|);
+    ~~ println(|arr_sugar| + |matrix|);
+
     ret 0;
+}
+
+fn print_len_here(arr'int: |a|) -> none {
+    println(len(|a|));
 }

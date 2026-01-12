@@ -1,3 +1,8 @@
+{-
+    Loops Test
+    Tests for loops with ranges (positive and negative steps), strings, and loop variable scope.
+-}
+
 fn loops() -> none {
     int |i|;
     for |i| in range(5){
@@ -11,6 +16,11 @@ fn loops() -> none {
     }
 
     println(>>i is still << + to_str(|i|));
+
+    ~~ String Iteration
+    for int |c| in >>Hello<< {
+        println(|c|);
+    }
 }
 
 fn start() -> int {

@@ -1,6 +1,10 @@
+fn start() -> none {
+    cast();
+}
+
 fn cast() -> none {
     print(>>--- Casting Test ---<<);
-    
+
     ~~ Bool -> Int
     int |i| <- to_int(Yes);
     print(>>Bool Yes to int (1): << + to_str(|i|));
@@ -54,10 +58,47 @@ fn cast() -> none {
     float |sf1| <- to_float(>>3.14<<);
     print(>>Str '3.14' to float (0.0): << + to_str(|sf1|));
 
-    print(>>--- End Casting Test ---<<);
+    print(>>--- Int Casts ---<<);
+    int |a| <- to_int(>>a<<);
+    print(>>'a' as int: << + to_str(|a|));
+
+    int |b| <- to_int(>>b<<);
+    print(>>'b' as int: << + to_str(|b|));
+
+    int |one| <- to_int(>>1<<);
+    print(>>'1' as int: << + to_str(|one|));
+
+    int |num| <- to_int(>>123<<);
+    print(>>'123' as int: << + to_str(|num|));
+
+    int |invalid| <- to_int(>>abc<<);
+    print(>>'abc' as int: << + to_str(|invalid|));
+
+    int |hex| <- to_int(>>#FF<<);
+    print(>>'#FF' (255) as int: << + to_str(|hex|));
+
+    int |bin| <- to_int(>>2#101<<);
+    print(>>'2#101' (5) as int: << + to_str(|bin|));
+
+    ~~ Float Casts
+    float |fa| <- to_float(>>a<<);
+    print(>>'a' as float: << + to_str(|fa|));
+
+    float |fone| <- to_float(>>1<<);
+    print(>>'1' as float: << + to_str(|fone|));
+
+    float |fnum| <- to_float(>>123.45<<);
+    print(>>'123.45' as float: << + to_str(|fnum|));
+
+    float |finvalid| <- to_float(>>abc<<);
+    print(>>'abc' as float: << + to_str(|finvalid|));
+
+    ~~ Special Floats
+    float |fhex| <- to_float(>>#FF<<);
+    print(>>'#FF' (255.0) as float: << + to_str(|fhex|));
+
+    float |fbase| <- to_float(>>2#101.1<<);
+    print(>>'2#101.1' (5.5) as float: << + to_str(|fbase|));
 }
 
-fn start() -> int {
-    cast();
-    ret 0;
-}
+

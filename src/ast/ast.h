@@ -1,12 +1,12 @@
 #ifndef _AST_H_
 #define _AST_H_
-/* Abstract Syntax Tree */
-
+#include "arith.h"
+#include "stdbool.h"
+#include "types.h"
 #include <stdint.h>
 #include <stdio.h>
-#include "arith.h"
-#include "types.h"
-#include "stdbool.h"
+
+/* Abstract Syntax Tree */
 
 /* Node types */
 typedef enum {
@@ -45,7 +45,7 @@ typedef enum {
     NODE_BOOL,
     NODE_VAR,
     NODE_CAST,
-    NODE_DEFAULT,
+    NODE_DEFAULT_VAL,
     NODE_MATCH,
     NODE_CASE
 } ast_node_t;
@@ -108,8 +108,10 @@ typedef struct ast_node {
             struct ast_node *cases;
         } match_stmt;
         struct {
-            struct ast_node *expr; // NULL for default
-            struct ast_node *body; // NULL for fallthrough
+            // NULL for default
+            struct ast_node *expr;
+            // NULL for fallthrough
+            struct ast_node *body;
         } case_stmt;
         struct {
             // loop variable
@@ -132,7 +134,7 @@ typedef struct ast_node {
         } while_loop;
 
         struct {
-            // Currently only print one string
+            // Only prints one string
             struct ast_node *arg;
         } print;
 
@@ -239,6 +241,5 @@ ast_node *ast_append(ast_node *list, ast_node *node);
 /* Utilities */
 void ast_print_dot(ast_node *node, const char *filename);
 void ast_free(ast_node *node);
-ast_node *ast_clone(ast_node *node);
 
 #endif // _AST_H_

@@ -1,3 +1,8 @@
+{-
+    Copy Test
+    Tests the copy() builtin for deep-copying arrays.
+-}
+
 fn start() -> int {
     arr'int |a| <- [1, 2, 3];
     arr'int |b| <- copy(|a|);

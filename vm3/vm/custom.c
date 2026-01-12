@@ -4,6 +4,15 @@
 #include <time.h>
 #include <errno.h>
 
+/* Simple swap */
+OPCODE(SWAP) {
+  MINARGS(2);
+  val_t *v_1 = POP;
+  val_t *v_2 = POP;
+  PUSH(v_1);
+  PUSH(v_2);
+}
+
 /* CALL that uses a pc instead of a function name -> just a blatant copy paste of CALL */
 OPCODE(CALL_PC) {
     MINARGS(2); // nrargs, func_pc
@@ -93,7 +102,7 @@ OPCODE(ITER_BEGIN){
   if(v->type == T_ARR && is_range(v)) {
     PUSH(v);
   } else {
-    // str + arr iterator [iterable, idx, len]
+    // (str and arr) iterator [iterable, idx, len]
     val_t *a = v_arr_create();
     arr_set(a->u.arr, 0, v);
     arr_set(a->u.arr, 1, v_num_new_int(0));

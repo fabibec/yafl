@@ -1,4 +1,5 @@
 \documentclass[11pt,a4paper]{article}
+\usepackage[top=2cm, bottom=2cm, left=2cm, right=2cm]{geometry}
 
 \title{\textbf{YAFL} \\ Yet another f... language}
 \author{Fabian Becker}
@@ -8,9 +9,20 @@
 
 \maketitle
 
-\section{Introduction}
+\begin{abstract}
+This report details the design philosophy and language specifics of the \texttt{YAFL} programming language.
+It aims to provide a comprehensive overview about the compiler submitted as the final study project of the Compiler Construction course
+\end{abstract}
 
-This is a very short report written in \LaTeX.
+\section{General Overview}
+
+\texttt{YAFL} is an abbreviation for ”Yet another f... language”, the replacement part for f... can be chosen by the user based on her or his current stance towards the language.
+Possible suggestions are: fabulous, fun or frustrating.
+
+\texttt{YAFL} is a compiled language, as it creates bytecode for a slightly modified
+version of the provided \texttt{VM3} virtual machine.
+Moreover it is a statically typed general purpose language as the included demo programs prove.
+
 
 \end{document}
 

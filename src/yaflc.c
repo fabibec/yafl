@@ -13,13 +13,15 @@ extern int yyparse();
 extern int yylex_destroy();
 extern FILE *yyin;
 
-static void usage(const char *prog) {
-    fprintf(stderr, "Usage: %s [options] <input_file>\n", prog);
+static void usage(){
+    fprintf(stderr, "\033[1m\033[1;36mThe Yafl compilerby Fabian Becker\033[0m\n");
+    fprintf(stderr, "Usage: yaflc [options] <input_file>.yafl\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "  -v, --verbose    Enable debug output\n");
     fprintf(stderr, "  -q, --quiet      Only show warnings and errors\n");
     fprintf(stderr, "  -o, --output     Specify output filename (default: code.yaflb)\n");
     fprintf(stderr, "  -h, --help       Show this help\n");
+    exit(EXIT_FAILURE);
 }
 
 int main(int argc, char **argv) {
@@ -41,24 +43,23 @@ int main(int argc, char **argv) {
             case 'v': level = LOG_DEBUG; break;
             case 'q': level = LOG_WARN; break;
             case 'o': output_file = optarg; break;
-            case 'h': usage(argv[0]); return 0;
-            default: usage(argv[0]); return 1;
+            case 'h': usage(); return 0;
+            default: usage(); return 1;
         }
     }
 
     if (optind < argc) {
         input_file = argv[optind];
-    }
-
-    logger_init(input_file ? input_file : "<stdin>");
-    logger_set_level(level);
-
-    if (input_file) {
         yyin = fopen(input_file, "r");
         if (!yyin) {
             log_error(0, "Cannot open input file: %s", input_file);
         }
+    } else {
+        usage();
     }
+
+    logger_init(input_file ? input_file : "<stdin>");
+    logger_set_level(level);
 
     int result = yyparse();
     int ret_code = 0;
@@ -72,7 +73,7 @@ int main(int argc, char **argv) {
         codegen(root, output_file);
         ast_free(root);
     } else {
-        // yyerror usually exits, but if we get here:
+        // yyerror usually exits
         fprintf(stderr, "Parse failed!\n");
         ret_code = 1;
     }

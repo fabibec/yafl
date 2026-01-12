@@ -1,7 +1,7 @@
+#include "types.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
-#include "types.h"
 
 yafl_t* type_new_simple(yafl_base_t base_t) {
     yafl_t *t = malloc(sizeof(yafl_t));
@@ -34,12 +34,9 @@ void type_list_free(yafl_t **t_list, int len) {
 
 int type_equals(yafl_t *t1, yafl_t *t2) {
     if (!t1 || !t2) return 0;
-
     // Generic matches anything
     if (t1->base_t == TYPE_GENERIC || t2->base_t == TYPE_GENERIC) return 1;
-
     if (t1->base_t != t2->base_t) return 0;
-
     if (t1->base_t == TYPE_ARR) {
         return type_equals(t1->comp_t, t2->comp_t);
     }
@@ -65,7 +62,6 @@ yafl_t* type_clone(yafl_t *t) {
 
 void type_to_str(const yafl_t *t, char *buf, size_t len) {
     if (!t || !buf || len == 0) return;
-
     switch (t->base_t) {
         case TYPE_VOID: snprintf(buf, len, "none"); break;
         case TYPE_BOOL: snprintf(buf, len, "bool"); break;

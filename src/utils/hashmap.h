@@ -21,7 +21,6 @@ typedef struct hashmap {
     hashmap_destructor destroy;
 } hashmap;
 
-
 hashmap *hashmap_create(int initial_capacity, float load_factor, hashmap_destructor destroy);
 void hashmap_free(hashmap *map);
 

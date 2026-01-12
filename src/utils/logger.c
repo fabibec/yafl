@@ -1,8 +1,8 @@
 #include "logger.h"
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdarg.h>
 
 static const char *g_input_filename = NULL;
 static log_level g_log_level = LOG_INFO;

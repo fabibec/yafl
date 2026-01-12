@@ -1,3 +1,8 @@
+{-
+    Match Test
+    Tests the match statement with integers, strings, fallthrough, and otherwise case.
+-}
+
 fn start() -> int {
     print(>>--- Match Test ---<<);
 
@@ -9,7 +14,6 @@ fn start() -> int {
         otherwise -> { print(>>Other<<); }
     }
 
-    print(>>--- Fallthrough Test ---<<);
     match 2 {
         case 1 -> { print(>>One<<); }
         case 2 ->
@@ -17,7 +21,6 @@ fn start() -> int {
         otherwise -> { print(>>Other<<); }
     }
 
-    print(>>--- String Match ---<<);
     str |s| <- >>hello<<;
     match |s| {
         case >>hi<< -> { print(>>Hi there<<); }
@@ -25,7 +28,6 @@ fn start() -> int {
         otherwise -> { print(>>Unknown<<); }
     }
 
-    print(>>--- Default Fallback ---<<);
     match 99 {
         case 1 -> { print(>>1<<); }
         otherwise -> { print(>>Default hit<<); }
