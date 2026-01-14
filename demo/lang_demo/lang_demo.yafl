@@ -22,7 +22,7 @@ fn start() -> none {
 
 fn url(str: |host|, int: |port| <- 443, bool: |secure| <- Yes) -> none {
     str |url|;
-    if(|secure|){
+    if |secure| {
         |url| <-+ >>https://<<;
     } else {
         |url| <-+ >>http://<<;

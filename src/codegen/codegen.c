@@ -78,6 +78,12 @@ static void codegen_zero_init(yafl_t *type, int line) {
             prog_add_num(prog, 0);
             prog_add_op(prog, MKARRAY);
             break;
+        case TYPE_RANGE:
+            prog_add_num(prog, 1); // Step
+            prog_add_num(prog, 1); // Stop
+            prog_add_num(prog, 0); // Start
+            prog_add_op(prog, MKRANGE);
+            break;
         default: {
             char buf[128];
             type_to_str(type, buf, sizeof(buf));
@@ -624,7 +630,9 @@ static void codegen_stmt(ast_node *node) {
                  log_error(node->line, "Expression is not iterable (must be array, string, or range)");
             }
 
-            prog_add_op(prog, ITER_BEGIN);
+            if (iter_t->base_t != TYPE_RANGE) {
+                prog_add_op(prog, MKITER);
+            }
 
             // Register loop variable
             ast_node *var_node = node->data.for_loop.var;

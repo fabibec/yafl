@@ -74,8 +74,8 @@ double parse_based_float(int base, const char* s) {
     // exponent (opt.)
     if (*s == '^') {
         s++;
-        exp = strtol(s, NULL, 16);
+        exp = strtol(s, NULL, 10);
     }
 
-    return value * pow(base, exp);
+    return value * pow(10, exp);
 }

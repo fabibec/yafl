@@ -5,7 +5,7 @@ char *opcodestr[] = {
  "CALL_PC",
  "SLEEPMS",
  "MKRANGE",
- "ITER_BEGIN",
+ "MKITER",
  "ITER_NEXT",
  "ADD",
  "TYPEOF",

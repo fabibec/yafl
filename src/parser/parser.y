@@ -60,7 +60,7 @@
 %type <node> for_loop_var
 %type <node> expr primary call_expr arr_expr
 %type <node> expr_list expr_list_opt
-%type <type> type_specifier type_basic type_complex
+%type <type> return_type type_specifier type_basic type_complex
 
 /* Precedence */
 %left OP_BIN_OR
@@ -98,7 +98,7 @@ fn_definition:
     ;
 
 fn_signature:
-    KW_FN ID '(' param_list ')' S_RARROW type_specifier {
+    KW_FN ID '(' param_list ')' S_RARROW return_type {
         /* body inserted in next step */
         $$ = ast_new_func($2, $4, $7, NULL);
     }
@@ -234,15 +234,15 @@ return_stmt:
 
 /* --- IF with optional ELSE --- */
 if_stmt:
-    KW_IF '(' expr ')' compound_stmt opt_else {
-        $$ = ast_new_if($3, $5, $6);
+    KW_IF expr compound_stmt opt_else {
+        $$ = ast_new_if($2, $3, $4);
     }
     ;
 
 opt_else:
     KW_ELSE compound_stmt { $$ = $2; }
-    | KW_ELIF '(' expr ')' compound_stmt opt_else {
-        $$ = ast_new_if($3, $5, $6);
+    | KW_ELIF expr compound_stmt opt_else {
+        $$ = ast_new_if($2, $3, $4);
     }
     | %empty { $$ = NULL; }
     ;
@@ -267,9 +267,10 @@ for_loop_var:
     ;
 
 while_stmt:
-KW_WHILE '(' expr ')' compound_stmt {
-    $$ = ast_new_while($3, $5);
-}
+    KW_WHILE expr compound_stmt {
+        $$ = ast_new_while($2, $3);
+    }
+    ;
 
 next_stmt:
 KW_NEXT ';' {
@@ -356,6 +357,11 @@ type_specifier:
     | type_complex
     ;
 
+return_type:
+    type_specifier
+    | T_NONE { $$ = type_new_simple(TYPE_VOID); }
+    ;
+
 type_basic:
     T_STR { $$ = type_new_simple(TYPE_STR); }
     | T_BOOL { $$ = type_new_simple(TYPE_BOOL); }
@@ -364,8 +370,7 @@ type_basic:
     ;
 
 type_complex:
-    T_NONE { $$ = type_new_simple(TYPE_VOID); }
-    | T_ARR '\'' type_specifier {
+    T_ARR '\'' type_specifier {
         $$ = type_new_composite($3);
     }
     | T_RANGE { $$ = type_new_simple(TYPE_RANGE); }

@@ -3,7 +3,7 @@ void op_SWAP(exec_t *);
 void op_CALL_PC(exec_t *);
 void op_SLEEPMS(exec_t *);
 void op_MKRANGE(exec_t *);
-void op_ITER_BEGIN(exec_t *);
+void op_MKITER(exec_t *);
 void op_ITER_NEXT(exec_t *);
 void op_add(exec_t *);
 void op_typeof(exec_t *);
@@ -61,7 +61,7 @@ enum opcodes {
   CALL_PC,
   SLEEPMS,
   MKRANGE,
-  ITER_BEGIN,
+  MKITER,
   ITER_NEXT,
   ADD,
   TYPEOF,

@@ -11,13 +11,13 @@ fn start() -> none {
     println(5 - 1);
 
     ~~ Boolean Folding
-    if (Yes) {
+    if Yes {
         println(>>True branch<<);
     } else {
         println(>>False branch (DCE should remove this)<<);
     }
 
-    if (1 = 2) {
+    if 1 = 2 {
         println(>>Impossible branch<<);
     } else {
         println(>>Else branch<<);

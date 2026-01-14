@@ -16,3 +16,4 @@
 - [x] cli for yaflc and yafl
 - [ ] cleanup <br>
 - [ ] test more <br>
+range zero init

@@ -11,7 +11,7 @@ fn start() -> none {
         |res| <- decode(|t|);
         print(>>Test << + |t| + >> -> <<);
         print(|res|);
-        if(|res| = |expected|[|idx|]){ println(>> [Passed]<<); } else {
+        if |res| = |expected|[|idx|] { println(>> [Passed]<<); } else {
             println(>> [Failed]<<);
             println(>>Expected: << + |expected|[|idx|]);
             println(>>Got:      << + |res|);
@@ -23,9 +23,9 @@ fn start() -> none {
 }
 
 fn is_digit(str: |chr|) -> bool {
-    if(len(|chr|) ~= 1){ ret No; }
+    if len(|chr|) ~= 1 { ret No; }
     int |ascii val| <- to_int(|chr|);
-    if(|ascii val| >= to_int(>>0<<) and |ascii val| <= to_int(>>9<<)){ ret Yes; }
+    if |ascii val| >= to_int(>>0<<) and |ascii val| <= to_int(>>9<<) { ret Yes; }
     ret No;
 }
 
@@ -40,13 +40,13 @@ fn decode(str: |s|) -> str {
 fn decode_rec(str: |s|) -> str {
     str |result|;
 
-    while (len(|s|) > |idx|){
+    while len(|s|) > |idx| {
         str |chr| <- |s|[|idx|];
 
-        if(is_digit(|chr|)) {
+        if is_digit(|chr|) {
             ~~ Decode number (arbitrary length)
             int |num|;
-            while(|idx| < len(|s|) and is_digit(|s|[|idx|])){
+            while |idx| < len(|s|) and is_digit(|s|[|idx|]) {
                 |num| <- |num| * #A + (to_int(|s|[|idx|]) - to_int(>>0<<));
                 |idx|++;
             }
@@ -58,7 +58,7 @@ fn decode_rec(str: |s|) -> str {
             ~~ Repeat substring |num| times
             |result| <-+ |substr| * |num|;
 
-        } elif (|chr| = >>]<<) {
+        } elif |chr| = >>]<< {
             |idx|++;
             ret |result|;
         } else {

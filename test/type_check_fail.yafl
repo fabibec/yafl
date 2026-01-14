@@ -4,7 +4,7 @@ fn start() -> none {
 
     ~~ int |x| <- 4 + >>hello<<; ~~ Error: Mixed type in addition
 
-    ~~ if (10) {               ~~ Error: Condition must be bool
+    ~~ if 10 {               ~~ Error: Condition must be bool
     ~~    print(>>bad<<);
     ~~ }
 

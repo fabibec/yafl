@@ -94,22 +94,18 @@ OPCODE(MKRANGE) {
   PUSH(a);
 }
 
-OPCODE(ITER_BEGIN){
+OPCODE(MKITER){
   val_t *v = POP;
 
   assert(v->type == T_ARR || v->type == T_STR);
 
-  if(v->type == T_ARR && is_range(v)) {
-    PUSH(v);
-  } else {
-    // (str and arr) iterator [iterable, idx, len]
-    val_t *a = v_arr_create();
-    arr_set(a->u.arr, 0, v);
-    arr_set(a->u.arr, 1, v_num_new_int(0));
-    int len = (v->type == T_STR) ? strlen(v->u.str->buf) : arr_len(v->u.arr);
-    arr_set(a->u.arr, 2, v_num_new_int(len));
-    PUSH(a);
-  }
+  // (str and arr) iterator [iterable, idx, len]
+  val_t *a = v_arr_create();
+  arr_set(a->u.arr, 0, v);
+  arr_set(a->u.arr, 1, v_num_new_int(0));
+  int len = (v->type == T_STR) ? strlen(v->u.str->buf) : arr_len(v->u.arr);
+  arr_set(a->u.arr, 2, v_num_new_int(len));
+  PUSH(a);
 }
 
 OPCODE(ITER_NEXT){

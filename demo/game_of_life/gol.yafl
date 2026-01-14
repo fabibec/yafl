@@ -10,7 +10,7 @@ fn start() -> none {
     println(>>Yafl Demo 1: Conway's Game of Life<<);
     arr'arr'int |grid| <- init_field();
 
-    while(Yes){
+    while Yes {
         print_grid(|grid|);
         |grid| <- update(|grid|);
     }
@@ -23,13 +23,13 @@ fn is_digit(str: |c|) -> bool {
 
 fn parse_int_after(str: |line|, str: |substring|) -> int{
     int |idx| <- contains(|line|,|substring|);
-    if(|idx| = -1) {ret -1; }
+    if |idx| = -1 {ret -1; }
 
     |idx| <- |idx| + len(|substring|);
-    while (|line|[|idx|] = >> <<){ |idx|++; }
+    while |line|[|idx|] = >> << { |idx|++; }
 
     int |val|;
-    while (is_digit(|line|[|idx|])) {
+    while is_digit(|line|[|idx|]) {
         |val| <- |val| * 10 + (to_int(|line|[|idx|]) - to_int(>>0<<));
         |idx|++;
     }
@@ -41,9 +41,9 @@ fn init_field() -> arr'arr'int {
     arr'str |input args| <- args();
     arr'str |file content|;
 
-    if (len(|input args|) = 1){
+    if len(|input args|) = 1 {
         |file content| <- read(|input args|[0]);
-        if (len(|file content|) = 0){
+        if len(|file content|) = 0 {
             println(>>Error: Unable to read file: << + |input args|[0]);
             exit();
         }
@@ -51,7 +51,7 @@ fn init_field() -> arr'arr'int {
         ~~ Skip comments
         int |line idx|;
         for str |line| in |file content| {
-            if(|line|[0] = >>#<<) { |line idx|++; next;}
+            if |line|[0] = >>#<< { |line idx|++; next;}
             stop;
         }
 
@@ -60,7 +60,7 @@ fn init_field() -> arr'arr'int {
         int |pattern width| <- parse_int_after(|first line|, >>x = <<);
         int |pattern height| <- parse_int_after(|first line|, >>y = <<);
 
-        if(|pattern width| > |WIDTH| or |pattern height| > |HEIGHT|){
+        if |pattern width| > |WIDTH| or |pattern height| > |HEIGHT| {
             println(>>Error: Grid size << + to_str(|WIDTH|) + >>x<< + to_str(|HEIGHT|) +
                 >> to small for pattern of size << + to_str(|pattern width|) + >>x<< + to_str(|pattern height|) );
             exit();
@@ -82,7 +82,7 @@ fn init_field() -> arr'arr'int {
                 match(|char|) {
                     case >>o<< -> {
                         ~~ live cell
-                        if(|cnt| = 0){ |cnt| <- 1; }
+                        if |cnt| = 0 { |cnt| <- 1; }
                         for int |i| in range (|cnt|) {
                             |grid|[|y| + |offset y|][|x| + |offset x|] <- |ALIVE|;
                             |x|++;
@@ -91,13 +91,13 @@ fn init_field() -> arr'arr'int {
                     }
                     case >>b<< -> {
                         ~~ dead cell - skip points
-                        if(|cnt| = 0){ |cnt| <- 1; }
+                        if |cnt| = 0 { |cnt| <- 1; }
                         |x| <-+ |cnt|;
                         |cnt| <- 0;
                     }
                     case >>$<< -> {
                         ~~ skip rows
-                        if(|cnt| = 0){ |cnt| <- 1; }
+                        if |cnt| = 0 { |cnt| <- 1; }
                         |y| <-+ |cnt|;
                         |x| <- 0;
                         |cnt| <- 0;
@@ -106,7 +106,7 @@ fn init_field() -> arr'arr'int {
                         stop;
                     }
                     otherwise -> {
-                        if(is_digit(|char|)) {
+                        if is_digit(|char|) {
                             |cnt| <- |cnt| * 10 + (to_int(|char|) - to_int(>>0<<));
                         }
                     }
@@ -137,7 +137,7 @@ fn init_dead_arr() -> arr'arr'int {
 fn init_random(arr'arr'int: |grid|) -> none {
     for int |y| in range(0, |HEIGHT|) {
         for int |x| in range(0, |WIDTH|) {
-            if(rng(4) = 0){
+            if rng(4) = 0 {
                 |grid|[|y|][|x|] <- |ALIVE|;
             }
         }
@@ -150,14 +150,14 @@ fn count_neighbors(arr'arr'int: |grid|, int: |y|, int: |x|) -> int {
 
     for int |dy| in range(-1, 2) {
         for int |dx| in range(-1, 2) {
-            if (|dy| = 0 and |dx| = 0){ next; }
+            if |dy| = 0 and |dx| = 0 { next; }
 
             int |ny| <- |y| + |dy|;
             int |nx| <- |x| + |dx|;
 
             ~~ Bounds check
-            if (|ny| >= 0 and |ny| < |HEIGHT| and |nx| >= 0 and |nx| < |WIDTH|) {
-                if (|grid|[|ny|][|nx|] = |ALIVE|) {
+            if |ny| >= 0 and |ny| < |HEIGHT| and |nx| >= 0 and |nx| < |WIDTH| {
+                if |grid|[|ny|][|nx|] = |ALIVE| {
                     |count|++;
                 }
             }
@@ -179,9 +179,9 @@ fn update(arr'arr'int: |grid|) -> arr'arr'int {
             int |neighbors| <- count_neighbors(|grid|, |y|, |x|);
             int |cell| <- |grid|[|y|][|x|];
 
-            if (|cell| = |ALIVE| and (|neighbors| = 2 or |neighbors| = 3)) {
+            if |cell| = |ALIVE| and (|neighbors| = 2 or |neighbors| = 3) {
                 |next|[|y|][|x|] <- |ALIVE|;
-            } elif (|neighbors| = 3) {
+            } elif |neighbors| = 3 {
                 |next|[|y|][|x|] <- |ALIVE|;
             }
         }
@@ -195,7 +195,7 @@ fn print_grid(arr'arr'int: |grid|) -> none {
     for int |y| in range(0, |HEIGHT|) {
         print(>>|<<);
         for int |x| in range(0, |WIDTH|) {
-            if(|grid|[|y|][|x|] ~= 0) {
+            if |grid|[|y|][|x|] ~= 0 {
                 print(>>#<<);
             } else {
                 print(>> <<);

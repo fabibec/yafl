@@ -13,7 +13,7 @@ fn start() -> int {
 }
 
 fn recur(int: |i|) -> none {
-    if (|i| < #5){
+    if |i| < #5 {
         print(>>Going into recursion<<);
         print(|i|);
         |i|++;
@@ -27,23 +27,23 @@ fn ops() -> none {
     bool |test 1| <- Yes;
     bool |test 2| <- Yes;
     bool |test 3| <- No;
-    if(|test 1| and |test 2| or |test 3|){
+    if |test 1| and |test 2| or |test 3| {
         print(>>This is correct!<<);
     }
 
-    if(|test 1| and |test 3| and |test 2|){
+    if |test 1| and |test 3| and |test 2| {
         print(>>You should not see this<<);
     }
 
-    if(|test 1| and ~|test 3|){
+    if |test 1| and ~|test 3| {
         print(>>This is correct!<<);
     }
 
-    if(-100 = -#64){
+    if -100 = -#64 {
         print(>>This is correct!<<);
     }
 
-    if(100 ~= 2#1100100){
+    if 100 ~= 2#1100100 {
        print(>>You should not see this too<<);
     }
 
