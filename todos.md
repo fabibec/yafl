@@ -15,5 +15,8 @@
 - [x] basic optimization <br>
 - [x] cli for yaflc and yafl
 - [ ] cleanup <br>
+- [ ] write report <br>
 - [ ] test more <br>
-range zero init
+
+
+

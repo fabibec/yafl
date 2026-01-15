@@ -1,0 +1,7 @@
+fn start() -> none {
+    println(>>Testing input...<<);
+    int |a| <- input_int(>>Enter number: <<);
+    println(>>You entered: << + to_str(|a|));
+    str |b| <- input_str(>>Enter string: <<);
+    println(>>You said: << + |b|);
+}

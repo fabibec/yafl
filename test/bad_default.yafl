@@ -1,0 +1,7 @@
+fn test(int: |a| <- >>bad<<) -> none {
+    println(|a|);
+}
+
+fn start() -> none {
+    test(5);
+}

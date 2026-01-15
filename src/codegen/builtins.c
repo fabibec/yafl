@@ -3,7 +3,6 @@
 #include "ast.h"
 #include "codegen.h"
 #include "logger.h"
-#include "type_checking.h"
 #include <stdlib.h>
 #include <limits.h>
 
@@ -125,17 +124,20 @@ static void codegen_print_range(prog_t *prog, ast_node *node, func_sym *sym, int
 
 /* --- Builtins --- */
 
+/* fn print(range: |r|) -> none */
+void builtins_print_range(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
+    codegen_print_range(prog, node, sym, arg_count);
+}
+
+/* fn println(range: |r|) -> none */
+void builtins_println_range(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
+    codegen_print_range(prog, node, sym, arg_count);
+    // Print newline
+    codegen_print_str(prog, "\n");
+}
+
 /* fn print(any: |printable|) -> none */
 void builtins_print(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    yafl_t *arg_type = type_check_expr(node->data.call.args);
-    bool is_range = arg_type && arg_type->base_t == TYPE_RANGE;
-    type_free(arg_type);
-
-    if(is_range) {
-        codegen_print_range(prog, node, sym, arg_count);
-        return;
-    }
-
     // Standard print
     codegen_builtin_push_args(prog, node, sym, arg_count);
     prog_add_num(prog, arg_count);
@@ -149,17 +151,6 @@ void builtins_print(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) 
 
 /* fn println(any: |printable|) -> none */
 void builtins_println(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    yafl_t *arg_type = type_check_expr(node->data.call.args);
-    bool is_range = arg_type && arg_type->base_t == TYPE_RANGE;
-    type_free(arg_type);
-
-    if(is_range) {
-        codegen_print_range(prog, node, sym, arg_count);
-        // Print newline
-        codegen_print_str(prog, "\n");
-        return;
-    }
-
     codegen_builtin_push_args(prog, node, sym, arg_count);
     prog_add_num(prog, arg_count);
     val_t *func_name = v_str_new_cstr("println");
@@ -172,15 +163,7 @@ void builtins_println(prog_t *prog, ast_node *node, func_sym *sym, int arg_count
 
 /* fn input_int(any: |printable str|) -> int */
 void builtins_input_int(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_builtin_push_args(prog, node, sym, arg_count);
-
-    prog_add_num(prog, arg_count);
-    val_t *func_name_p = v_str_new_cstr("print");
-    int const_id_p = prog_new_constant(prog, func_name_p);
-    prog_add_num(prog, const_id_p);
-    prog_add_op(prog, CONSTANT);
-    prog_add_op(prog, CALL);
-    prog_add_op(prog, DISCARD);
+    builtins_print(prog, node, sym, arg_count);
 
     prog_add_num(prog, 0);
     val_t *func_name = v_str_new_cstr("getint");
@@ -192,15 +175,7 @@ void builtins_input_int(prog_t *prog, ast_node *node, func_sym *sym, int arg_cou
 
 /* fn input_str(any: |printable str|) -> str */
 void builtins_input_str(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_builtin_push_args(prog, node, sym, arg_count);
-
-    prog_add_num(prog, arg_count);
-    val_t *func_name_p = v_str_new_cstr("print");
-    int const_id_p = prog_new_constant(prog, func_name_p);
-    prog_add_num(prog, const_id_p);
-    prog_add_op(prog, CONSTANT);
-    prog_add_op(prog, CALL);
-    prog_add_op(prog, DISCARD);
+    builtins_print(prog, node, sym, arg_count);
 
     prog_add_num(prog, 0);
     val_t *func_name = v_str_new_cstr("getstring");
@@ -485,6 +460,10 @@ void builtins_register(symtab *s) {
 
     symtab_add_builtin(s, "print", none_t, 1, print_args, NULL, builtins_print);
     symtab_add_builtin(s, "println", none_t, 1, print_args, NULL, builtins_println);
+
+    yafl_t *range_arg[] = {range_t};
+    symtab_add_builtin(s, "print", none_t, 1, range_arg, NULL, builtins_print_range);
+    symtab_add_builtin(s, "println", none_t, 1, range_arg, NULL, builtins_println_range);
 
     // read(path) -> arr'str
     yafl_t *str_t = type_new_simple(TYPE_STR);

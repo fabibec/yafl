@@ -769,32 +769,8 @@ void codegen(ast_node *root, char *filename) {
                 -1   // pc unknown for now
             );
 
-            // Type check default arguments
-            ast_node *param_node = node->data.func.params;
-            bool seen_default = false;
-
-            for (int i = 0; i < num_params; i++) {
-                if (defaults[i]) {
-                    seen_default = true;
-
-                    yafl_t *def_t = type_check_expr(defaults[i]);
-                    type_check_compatibility(
-                        param_types[i],
-                        def_t,
-                        param_node->line,
-                        "default argument"
-                    );
-                    type_free(def_t);
-                } else if (seen_default) {
-                    log_error(
-                        param_node->line,
-                        "No default argument provided for \'%s\'",
-                        param_node->data.param.name
-                    );
-                }
-
-                param_node = param_node->next;
-            }
+            // Type check signature (default arguments etc)
+            type_check_func_signature(node);
 
             type_list_free(param_types, num_params);
             free(defaults);

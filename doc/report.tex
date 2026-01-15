@@ -3,6 +3,16 @@
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage{hyperref}
+\usepackage{tabularx}
+\usepackage{array}
+
+\hypersetup{
+  pdftitle={YAFL Report},
+  pdfauthor={Fabian Becker},
+  pdfsubject={Compiler Construction},
+  pdfproducer={pdflatex},
+  pdfcreator={LaTeX}
+}
 
 % Define YAFL syntax highlighting
 \lstdefinelanguage{YAFL}{
@@ -27,7 +37,11 @@
   frame=single,
   breaklines=true,
   tabsize=4,
-  escapeinside={(*}{*)}
+  escapeinside={(*}{*)},
+  aboveskip=1em,
+  belowskip=1em,
+  xleftmargin=1.5em,
+  xrightmargin=1em
 }
 
 \title{\textbf{YAFL} \\ Yet Another f$\dots$ Language}
@@ -48,9 +62,20 @@ Submitted as the final study project for the Compiler Construction course, \text
 \texttt{YAFL} stands for "Yet another f... language". The "f..." can be replaced based on the programmer's current stance towards the language: \textit{Fabulous} when it compiles, \textit{Fun} when writing algorithms, or \textit{Frustrating} when debugging.
 
 \subsection{Design Philosophy}
-The core idea behind \texttt{YAFL} is to merge the readability and expressiveness of modern languages with the structural discipline of traditional more languages to provide readable program with clear, foreseeable behavior at runtime.
+The core idea behind \texttt{YAFL} is to merge the readability and expressiveness of modern languages with the structural discipline of traditional languages to provide readable programs with clear, predictable behavior at runtime.
 While the function signatures can be considered quite similar to Go, it also borrows high-level concepts like generalized \texttt{for} loops and \texttt{range} iterables from Python, making common tasks concise.
 However, it retains the explicit structure of C-like languages, using braces \texttt{\{\}} for blocks and semicolons \texttt{;} for statement termination which is familiar to almost every programmer as well as a static type system to catch issues at compile time and not at runtime.
+
+\subsection{Compiler Architecture}
+The YAFL compiler is implemented in C and utilizes a pipelined architecture to transform source code into executable bytecode. The compilation process consists of the following stages:
+
+\begin{enumerate}
+    \item \textbf{Lexical Analysis:} Implemented using \texttt{Flex}, this stage scans the input source code and converts character streams into a sequence of tokens.
+    \item \textbf{Parsing:} Implemented using \texttt{Bison}, this stage consumes the token stream to construct the Abstract Syntax Tree (AST), representing the hierarchical structure of the program.
+    \item \textbf{Optimization:} An optional pre-processing pass traverses the AST to perform Constant Folding and Dead Code Elimination. This simplifies the tree structure before it is processed further.
+    \item \textbf{Code Generation \& Semantic Analysis:} The AST is traversed to lower the program into the custom bytecode instruction set for the \texttt{VM3} virtual machine. During this traversal, semantic analysis is performed on-the-fly.
+    This includes symbol resolution, strict type checking, and argument validation, ensuring that only valid and type-safe programs result in executable bytecode.
+\end{enumerate}
 
 \section{Syntax and Conventions}
 
@@ -59,15 +84,15 @@ However, it retains the explicit structure of C-like languages, using braces \te
 \subsection{Identifiers and Variables}
 Variables are visually distinct, enclosed in pipe characters (e.g., \texttt{|my var|}).
 This design choice immediately separates variable references from keywords and function names.
-Moreover \texttt{YAFL} places almost no restrictions on these Identifiers, only pipes and newlines characters are prohibited allowing for more expressive variable names.
+Moreover \texttt{YAFL} places almost no restrictions on these Identifiers, only pipes and newline characters are prohibited, allowing for more expressive variable names.
 
 \subsection{Numbers}
 Various way to express numbers are supported in \texttt{YAFL}, besides the standard of writing decimal numbers.
-You can prefix your number with a hashtag \texttt{\#} to denotes Hexadecimal numbers, moreover you can prefix any base from 2-16 before the hashtag an the number behind is interpreted in the base.
+You can prefix your number with a hashtag \texttt{\#} to denote Hexadecimal numbers, moreover you can prefix any base from 2-16 before the hashtag and the number behind is interpreted in the base.
 
 This also works for floating point numbers, here both the parts before and after the decimal point are interpreted in this base. Only the optional exponent expressed by the caret (\texttt{\^{ }}) needs to be a decimal.
 
-In order to grasp large numbers better they can be formated with the underscore, this formatter is ignored during parsing and works for both integers and floating point numbers.
+In order to grasp large numbers better they can be formatted with the underscore, this formatter is ignored during parsing and works for both integers and floating point numbers.
 \begin{lstlisting}
     int |hex1| <- #FF; ~~ 255
     int |hex2| <- 16#A0; ~~ 160
@@ -82,7 +107,7 @@ In order to grasp large numbers better they can be formated with the underscore,
 
 \subsection{Assignments}
 The assignment operator is \texttt{<-}, emphasizing the flow of data into the variable.
-Combined arithmetic operations (Addtion, Subtraction, Multiplication, Division \& Modulo) and assignments are also supported for variables.
+Combined arithmetic operations (Addition, Subtraction, Multiplication, Division \& Modulo) and assignments are also supported for variables.
 Simple increment and decrement operators are also implemented with the familiar \texttt{|my var|++} and \texttt{|my var|--}, however these can be only applied after the Identifiers and execute the operation and return the updated value.
 
 \begin{lstlisting}
@@ -114,12 +139,11 @@ Function declarations explicitly separate parameter types and names, and use \te
 fn calculate(int : |x|, int : |y|) -> int { ... }
 \end{lstlisting}
 
-In resemblence to assembly programs a valid \texttt{YAFL} program needs a function named \texttt{start()} with no parameters.
+In resemblance to assembly programs a valid \texttt{YAFL} program needs a function named \texttt{start()} with no parameters.
 The return type can be either \texttt{int} or \texttt{none}, however in both cases nothing is returned.
 \begin{lstlisting}
 fn start() -> <int|none> { ... }
 \end{lstlisting}
-
 \section{Language Features}
 
 \subsection{Type System}
@@ -158,6 +182,12 @@ elif |i| % 3 = 0 { ... }
 else { ... }
 \end{lstlisting}
 
+\subsubsection{While Statements}
+While loops are also implemented in a known manner, colons for the condition of type \texttt{bool} are not needed.
+\begin{lstlisting}
+while Yes { ... }
+\end{lstlisting}
+
 \subsubsection{For Loops and Iterables}
 The \texttt{for} loop is a generalized iterator. It abstracts over different data sources using the syntax \texttt{for <type> |var| in iterator}.
 
@@ -171,7 +201,7 @@ Current is initially set to the start value.
 The OPCODE \texttt{MKRANGE} creates this special array on stack from provided start, stop and step values, this syntax can't be recreated by user, as arrays need to have a common type.
 Ranges can only be of type \texttt{int}, and support negative start and stop values to begin iteration from the high
 
-Arrays and strings also get wrapped in an iterator container of the structure [ <object>, <current>, <len>] by the OPCODE \texttt{MKITER}.
+Arrays and strings also get wrapped in an iterator container of the structure [<object>, <current>, <len>] by the OPCODE \texttt{MKITER}.
 
 The iteration process is then performed by the OPCODE \texttt{ITER\_NEXT}, here either the next value of the iterator is pushed and a one is pushed to the stack and the container is updated or the container gets popped and a zero is pushed to the stack to indicate the end.
 
@@ -187,7 +217,16 @@ for str |x| in >>Yafl is fun!<< { ... }
 \end{lstlisting}
 
 \subsubsection{Match Statements}
-The \texttt{match} statement replaces complex \texttt{if-else} chains. It supports integers and strings, implicit fallthrough for empty cases, and a default \texttt{otherwise} branch.
+The \texttt{match} statement replaces complex \texttt{if-else} chains.
+It supports all primitive types, so strings as well.
+The case expressions needs to be collapsible to literals at compile time so e.g. 1 + 5 is allowed.
+
+Since strings are also supported we cant simply build a jumptable in bytecode as it is not trivial to calculate the offset of a string.
+Liner scan on the other hand are essentially sequential if statements in bytecode which generate no performance improvement and therefore discards the idea of the match statement all together.
+Hence the Match statement was implemented using the map datatype of \texttt{MV3}, which is essentially a hashmap and used to e.g. store constants.
+
+During code generation a map with the case expression as key and the program counter for the corresponding bytecode is generated.
+With the special OPCODE \texttt{SWITCH\_LOOKUP} we pass this map, a default program counter location and the value to be compared, the operation then returns the correct location by performing a hashmap lookup.
 
 \begin{lstlisting}
 match |val| {
@@ -198,40 +237,175 @@ match |val| {
 }
 \end{lstlisting}
 
+\subsubsection{Next and Stop operators}
+
+Next and stop operator are the equivalent to break and continue. However these can only be used in for and while loops not the match statement as the break is handled here implicitly.
+During code generation a loop stack is used to keep track of the current of loop, if a loop is entered the information get pushed onto the stack.
+If a next or stop is occurred the stack is used to check if the current context contains a loop or not, moreover for next we can the access the jump target to move back to the loop start,
+if a stop is detected we push the program counter of the location where the jump target needs to be inserted onto the stack. After the loop is generated we patch these counters before popping the loop of the stack.
+
 \subsection{Functions}
 
+This language includes advanced function features, namely: Forward References, Overloading and Default Arguments
+
+In order to support these features a custom symbol table was created.
+To use this table during code generation the OPCODE \texttt{CALL\_PC} was created, which allows calling a function passed on a program counter rather than it's not unique function name.
+
 \subsubsection{Forward References}
+The code generation of \texttt{YAFL} uses a two pass approach. First all functions are registered in the custom symbol table, then in the second pass the function bodies are created and their program counters are updated in the table.
+If during the second pass a call to a function that is not yet generated occurs the corresponding location is appended to the called functions fixup list.
+When this function is then generated the fixup list is evaluated and the program counter locations are patched.
+If a call to an already generated function body occurs the location can be accessed via a symbol table lookup.
+
+This way the function order doesnt matter and the programmer can group functions to be the most readable to them.
 
 \subsubsection{Overloading and Default Arguments}
-\texttt{YAFL} supports function overloading, allowing multiple definitions for the same name with different parameter lists.
-It also supports default values for trailing arguments, simplifying API usage.
+\texttt{YAFL} supports function overloading, allowing multiple definitions for the same name with different signatures.
+The signature includes the function name, amount of arguments, the type of the arguments and the order of the arguments.
+
+It also supports default values for trailing arguments, simplifying API usage. When defining a default argument, all succeeding arguments need a default value as well.
+Default arguments are type checked as well during compilation.
 
 \begin{lstlisting}
 fn log(str : |msg|, int : |level| <- 1) -> none { ... }
 \end{lstlisting}
 
+The \texttt{print} and \texttt{println} function use the internal type \texttt{any}, these can be overloaded for a more specific type, which for example was done for the \texttt{range} type.
+
 \subsubsection{Builtin Functions}
+
+A bunch of builtin functions are also supported these are essentially function pointer that point to a function with generated the bytecode for this function.
+They are registered at the symbol table during before code generation and treated as function calls. This keep the lexer and parser more simple.
+A list of the functions can be found in the appendix.
 
 \section{Optimizations}
 
+During after code generation the compiler applies Constant Folding and Dead Code Elimination.
+For Dead Code Elimination we can collapse if-elif-else and match statements into just the correct statement if the comparison can be evaluated at compile time.
+Also all code after next and stop and ret (return) is considered unreachable and will be removed.
+
 \section{Toolchain}
+
+\texttt{YAFL} comes with a two-step toolchain similar to Java.
+
+First \texttt{yaflc} is used to compile \textit{.yafl} files to bytecode files \textit{.yalfb} through command line arguments the compilation process can be observed at different levels of detail.
+The \texttt{-v} flag additionally generates an AST visualization both as a dot and svg file.
+
+Then \texttt{yafl} is used to execute the \textit{.yaflb} files on \texttt{VM3} you can also pass input argument after the bytecode file name into the program that can be accessed via the \texttt{args()} function.
 
 \appendix
 
 \section{Project Structure}
 
+The submitted project is structured in the following way:
+\begin{itemize}
+    \item \textbf{demo:} Contains the demonstration programs
+    \item \textbf{doc:} The \LaTeX\space code for this report
+    \item \textbf{src:} Compiler source code
+    \item \textbf{test:} Various small programs written during implementation
+    \item \textbf{vm3:} The code for the modified version of \texttt{VM3}
+\end{itemize}
+
+\section{List of Builtin Functions}
+
+\vspace{1em}
+\begin{center}
+\begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}p{6.5cm} | X|}
+  \hline
+  \textbf{Signature} & \textbf{Description} \\ [0.5ex]
+  \hline\hline
+  \texttt{args() -> arr'str} & Returns the command-line arguments passed to the program. \\
+  \hline
+  \texttt{contains(str: |haystack|, str: |needle|) -> int} & Returns the starting index of \texttt{needle} in \texttt{haystack}, or -1 if not found. \\
+  \hline
+  \texttt{copy(<arr|str|range>: |val|) -> <type>} & Creates a deep copy of an array, string, or range. \\
+  \hline
+  \texttt{exit() -> none} & Immediately terminates the program. \\
+  \hline
+  \texttt{input\_int(str: |prompt|) -> int} & Prints a prompt and reads an integer from stdin. \\
+  \hline
+  \texttt{input\_str(str: |prompt|) -> str} & Prints a prompt and reads a line from stdin. \\
+  \hline
+  \texttt{len(<arr|str>: |val|) -> int} & Returns the number of elements in an array or characters in a string. \\
+  \hline
+  \texttt{print(any: |val|) -> none} & Prints the string representation of a value to stdout. \\
+  \hline
+  \texttt{println(any: |val|) -> none} & Prints the string representation of a value followed by a newline. \\
+  \hline
+  \texttt{range(int: |start|, int: |stop|, int: |step| <- 1) -> range} & Creates a range iterator from \texttt{start} to \texttt{stop} with step \texttt{step}. \\
+  \hline
+  \texttt{range(int: |stop|) -> range} & Creates a range iterator from 0 to \texttt{stop} with step 1. \\
+  \hline
+  \texttt{read(str: |path|) -> arr'str} & Reads a text file into an array of strings (lines). \\
+  \hline
+  \texttt{rng(int: |min|, int: |max|) -> int} & Generates a random integer between \texttt{min} and \texttt{max} (inclusive). \\
+  \hline
+  \texttt{rng(int: |max|) -> int} & Generates a random integer between 0 and \texttt{max} (inclusive). \\
+  \hline
+  \texttt{sleep(int: |ms|) -> none} & Pauses program execution for \texttt{ms} milliseconds. \\
+  \hline
+  \texttt{slice(<arr|str>: |v|, int: |s| <- 0, int: |e| <- MAX) -> <type>} & Returns a slice from index \texttt{s} (inclusive) to \texttt{e} (exclusive). \\
+  \hline
+  \texttt{to\_bool(<int|float|str>: |v|) -> bool} & Converts or parses a value to a boolean. \\
+  \hline
+  \texttt{to\_float(<int|bool|str>: |v|) -> float} & Converts or parses a value to a float. \\
+  \hline
+  \texttt{to\_int(<float|bool|str>: |v|) -> int} & Converts or parses a value to an integer. \\
+  \hline
+  \texttt{to\_str(<int|float|bool>: |v|) -> str} & Converts a value to its string representation. \\
+  \hline
+  \texttt{write(str: |p|, str: |txt|, bool: |app| <- No) -> bool} & Writes or appends text to a file. Returns success status. \\ [1ex]
+  \hline
+\end{tabularx}
+\end{center}
+
 \section{VM3 Modifications}
 
 To support \texttt{YAFL}'s features, the standard VM3 architecture was extended with custom opcodes and native functions.
+Besides the already mentioned ones, these are the additionally created opcodes.
+
+\vspace{1em}
+\begin{center}
+\begin{tabularx}{\textwidth}{|l|X|}
+  \hline
+  \textbf{OPCODE/NATIVE Identifier} & \textbf{Description} \\ [0.5ex]
+  \hline\hline
+  \texttt{ARGS} & Pushes commandline argument array to stack \\
+  \hline
+  \texttt{CONTAINS} & Returns the index of the needle (str) in the haystack (str), -1 if not found\\
+  \hline
+  \texttt{READ\_FILE} & Reads a file by returning a string array of lines (newline gets stripped) \\
+  \hline
+  \texttt{SLEEPMS} & Sleeps for the provided number of milliseconds ($\le10s$) by using \texttt{nanosleep()}\\
+  \hline
+  \texttt{SLICE} & Slices a string, negative indexing (start from end) allowed, returns a deep copy \\
+  \hline
+  \texttt{SWAP} & Swaps the two topmost elements on the stack \\
+  \hline
+  \texttt{WRITE\_FILE} & Writes or appends string to a file (without newline), returns success a boolean \\ [1ex]
+  \hline
+\end{tabularx}
+\end{center}
+
+Other other Modifications of the source code include:
+
+\begin{itemize}
+    \item Renamed \texttt{stack\_t} to \texttt{vmstack\_t} due to name collision with stack.h required by signal.h.
+    \item Rewrote type casting to include parsing of \texttt{YAFL}s custom number format from string.
+    Added additional functionality for some types.
+    \item Changed \texttt{exec\_t} and \texttt{exec\_new} to accept commandline arguments.
+    \item \texttt{arr\_copy} now creates deep copy even for nested types.
+    \item \texttt{str\_add\_buf} uses exponential growth in order to trigger less reallocation when concatenating multiple strings.
+\end{itemize}
 
 \section{Demonstration Programs}
 
 The capabilities of \texttt{YAFL} are demonstrated through four included programs:
 \begin{enumerate}
-    \item \textbf{Game of Life}: Visualizes cellular automata using arrays and loops.
-    \item \textbf{Run Length Decoder}: Recursively decodes strings (e.g., \texttt{3[ab]}).
-    \item \textbf{Black Jack}: A card game simulation using random number generation and user input.
-    \item \textbf{Language Demo}: Highlights overloading, slicing, and pattern matching.
+    \item \textbf{Game of Life}: Implements Conway's Game of Life to showcase the language's handling of multi-dimensional arrays and nested loops. It utilizes the \texttt{sleep} builtin and ANSI escape codes to create an animated visualization in the terminal.
+    \item \textbf{Run Length Decoder}: A recursive descent parser for decoding run-length encoded strings (e.g., \texttt{3[ab]}). This program demonstrates recursion, string manipulation functions (\texttt{contains}, \texttt{slice}), and conditional logic.
+    \item \textbf{Black Jack}: A fully interactive card game simulation. It highlights the use of the \texttt{rng} builtin for game logic, \texttt{input\_str} for user interaction, and extensive control flow using \texttt{match} and \texttt{if-else} structures.
+    \item \textbf{Language Demo}: A comprehensive showcase of specific language features including function overloading, slicing, and pattern matching.
 \end{enumerate}
 
 \end{document}

@@ -16,6 +16,26 @@ void type_check_compatibility(yafl_t *expected, yafl_t *actual, int line, const 
     }
 }
 
+void type_check_func_signature(ast_node *node) {
+    if (!node || node->type != NODE_FUNC) return;
+
+    ast_node *param = node->data.func.params;
+    bool seen_default = false;
+
+    while (param) {
+        if (param->data.param.default_value) {
+            seen_default = true;
+            yafl_t *def_t = type_check_expr(param->data.param.default_value);
+            type_check_compatibility(param->data.param.type, def_t, param->line, "default argument");
+            type_free(def_t);
+        } else if (seen_default) {
+            log_error(param->line, "No default argument provided for '%s' (it follows one that has a default)",
+                        param->data.param.name);
+        }
+        param = param->next;
+    }
+}
+
 yafl_t* type_check_expr(ast_node *node) {
     if (!node) return NULL;
 
@@ -148,7 +168,6 @@ yafl_t* type_check_expr(ast_node *node) {
             }
 
             type_list_free(arg_types, arg_count);
-
             return type_clone(fn->ret_type);
         }
 

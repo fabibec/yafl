@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <errno.h>
+#include <sys/types.h>
 
 /* Simple swap */
 OPCODE(SWAP) {
@@ -196,7 +197,7 @@ NATIVE(READ_FILE) {
 
   char *line = NULL;
   size_t len = 0;
-  size_t read;
+  ssize_t read;
   while ((read = getline(&line, &len, f)) != -1) {
     if (read > 0 && line[read - 1] == '\n') line[read - 1] = '\0';
     arr_push(lines->u.arr, v_str_new_cstr(line));
@@ -222,9 +223,11 @@ NATIVE(WRITE_FILE) {
   FILE *f = fopen(v_path->u.str->buf, append ? "a" : "w");
   if (!f) return v_num_new_int(0);
 
-  int res = fputs(v_content->u.str->buf, f);
-  fclose(f);
-  return v_num_new_int(res != EOF);
+  size_t len = strlen(v_content->u.str->buf);
+  size_t written = fwrite(v_content->u.str->buf, 1, len, f);
+
+  int ok = (written == len && fclose(f) == 0);
+  return v_num_new_int(ok);
 }
 
 NATIVE(CONTAINS) {
@@ -234,11 +237,17 @@ NATIVE(CONTAINS) {
   char *haystack = v_haystack->u.str->buf;
   char *needle = v_needle->u.str->buf;
 
+  size_t hlen = strlen(haystack);
+  size_t nlen = strlen(needle);
+
+  // If needle empty return 0
+  if (nlen == 0) return 0;
+
   int ret = -1;
-  for (int i = 0; haystack[i]; i++) {
-    int j = 0;
-    while (needle[j] && haystack[i + j] == needle[j]) j++;
-    if (!needle[j]){
+  for (size_t i = 0; i + nlen <= hlen; i++) {
+    size_t j = 0;
+    while (j < nlen && haystack[i + j] == needle[j]) j++;
+    if (j == nlen) {
       ret = i;
       break;
     }
@@ -270,6 +279,7 @@ NATIVE(SLICE) {
 
   // Still out of bound? Clip
   if (start < 0) start = 0;
+  if (end < 0) end = 0;
   if (end > len) end = len;
 
   if (start > end) start = end;

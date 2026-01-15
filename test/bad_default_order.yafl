@@ -1,0 +1,7 @@
+fn test(int: |a| <- 5, int: |b|) -> none {
+    println(|a| + |b|);
+}
+
+fn start() -> none {
+    test(1, 2);
+}
