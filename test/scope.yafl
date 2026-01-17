@@ -1,4 +1,9 @@
-fn start() -> int {
+{-
+    Scope Test
+    Tests scoping.
+-}
+
+fn start() -> none {
     float |a| <- 100.0;
     println(|a|);
 
@@ -24,6 +29,4 @@ fn start() -> int {
     }
 
     println(|a|);
-
-    ret 0;
 }

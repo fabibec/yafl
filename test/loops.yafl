@@ -18,7 +18,7 @@ fn loops() -> none {
     println(>>i is still << + to_str(|i|));
 
     ~~ String Iteration
-    for int |c| in >>Hello<< {
+    for str |c| in >>Hello<< {
         println(|c|);
     }
 }

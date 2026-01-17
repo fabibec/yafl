@@ -1,0 +1,14 @@
+{- 
+    Escapes Test
+    Tests string escape sequences including ^t, ^n, ^x.., and literal backslashes.
+-}
+
+fn start() -> none {
+    println(>>--- Escape Test ---<<);
+    println(>>Tab: [^t]<<);
+    println(>>Newline:^nNext Line<<);
+    println(>>Hex: ^x41^x42^x43<<);
+    println(>>Literal Backslash: \t \n \\ <<);
+    println(>>Literal Caret: ^ <<);
+    println(>>Escaped Delimiter: ^<< <<);
+}

@@ -3,7 +3,7 @@
     Tests array creation, indexing, assignment, and length.
 -}
 
-fn start() -> int {
+fn start() -> none {
     println(>>--- Array Test ---<<);
 
     ~~ Zero init
@@ -55,8 +55,6 @@ fn start() -> int {
     ~~ Type error
     ~~ println(|arr_sugar| + |b|);
     ~~ println(|arr_sugar| + |matrix|);
-
-    ret 0;
 }
 
 fn print_len_here(arr'int: |a|) -> none {

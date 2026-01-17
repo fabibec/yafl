@@ -1,0 +1,26 @@
+{
+  "name": "yafl-lang",
+  "displayName": "YAFL Syntax Highlighter",
+  "description": "Simple Syntax Highlighter for YAFL",
+  "version": "0.0.1",
+  "publisher": "Fabian Becker",
+  "engines": {
+    "vscode": "^1.0.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "yafl",
+      "aliases": ["YAFL", "yafl"],
+      "extensions": [".yafl"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "yafl",
+      "scopeName": "source.yafl",
+      "path": "./syntax/yafl.tmLanguage.json"
+    }]
+  }
+}

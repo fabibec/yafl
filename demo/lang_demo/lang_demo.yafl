@@ -1,7 +1,17 @@
 {-
  This is a yafl language demo.
 -}
+
 fn start() -> none {
+    ~~ Polymorphic operators
+    arr'int |a1| <- [1, 2] + [3, 4];
+    |a1| <-* 3;
+    println(|a1|);
+
+    str |s1| <- >>Hello<< + >> World<< * 5;
+    println(|s1|);
+
+
     ~~ Function Overloading + Slicing
     range'int |r| <- range(1,6,2);
     str |s| <- slice(>>This is a Demo!<<, 10);

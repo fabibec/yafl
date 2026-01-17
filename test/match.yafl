@@ -3,35 +3,33 @@
     Tests the match statement with integers, strings, fallthrough, and otherwise case.
 -}
 
-fn start() -> int {
-    print(>>--- Match Test ---<<);
+fn start() -> none {
+    println(>>--- Match Test ---<<);
 
     int |x| <- 2;
     match |x| {
-        case 1 -> { print(>>One<<); }
-        case 2 -> { print(>>Two<<); }
-        case 3 -> { print(>>Three<<); }
-        otherwise -> { print(>>Other<<); }
+        case 1 -> { println(>>One<<); }
+        otherwise -> { println(>>Other<<); }
+        case 2 -> { println(>>Two<<); }
+        case 3 -> { println(>>Three<<); }
     }
 
     match 2 {
-        case 1 -> { print(>>One<<); }
-        case 2 ->
-        case 3 -> { print(>>Two or Three<<); }
-        otherwise -> { print(>>Other<<); }
+        case 1 -> { println(>>One<<); }
+        case 1+1 ->
+        case 3 -> { println(>>Two or Three<<); }
+        otherwise -> { println(>>Other<<); }
     }
 
     str |s| <- >>hello<<;
     match |s| {
-        case >>hi<< -> { print(>>Hi there<<); }
-        case >>hello<< -> { print(>>Hello there<<); }
-        otherwise -> { print(>>Unknown<<); }
+        case >>hi<< -> { println(>>Hi there<<); }
+        case >>hel<< + >>lo<< -> { println(>>Hello there<<); }
+        otherwise -> { println(>>Unknown<<); }
     }
 
     match 99 {
-        case 1 -> { print(>>1<<); }
-        otherwise -> { print(>>Default hit<<); }
+        case 1 -> { println(>>1<<); }
+        otherwise -> { println(>>Default hit<<); }
     }
-
-    ret 0;
 }

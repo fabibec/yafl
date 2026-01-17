@@ -1,4 +1,9 @@
-fn start() -> int {
+{-
+    Loop control Test
+    Tests next and stop operators.
+-}
+
+fn start() -> none {
     println(>>Test while loop with next/stop:<<);
     int |i| <- 0;
     while |i| < 10 {
@@ -13,7 +18,7 @@ fn start() -> int {
         }
         println(|i|);
     }
-    
+
     println(>>Test for loop with next/stop:<<);
     for int |x| in range(0, 10) {
         if |x| = 2 {
@@ -26,6 +31,4 @@ fn start() -> int {
         }
         println(|x|);
     }
-    
-    ret 0;
 }

@@ -247,7 +247,8 @@ void builtins_copy(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
     prog_add_op(prog, COPY);
 }
 
-/* fn slice(arr'any: |arr|, int: |start|, int: |end| <- 2147483647) -> arr'any */
+/* fn slice(arr'any: |arr|, int: |start|, int: |end| <- len(|arr|)) -> arr'any */
+/* fn slice(str: |s|, int: |start|, int: |end| <- len(|s|)) -> str */
 void builtins_slice(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
     codegen_builtin_push_args(prog, node, sym, arg_count);
     prog_add_num(prog, 3);
@@ -511,15 +512,13 @@ void builtins_register(symtab *s) {
     // slice(...) -> arr'any | str
     yafl_t *slice_args[] = {arr_any_t, int_t, int_t};
     yafl_t *slice_str_args[] = {str_t, int_t, int_t};
-    ast_node *slice_start_def = ast_new_int(0);
     ast_node *slice_end_def = ast_new_int(INT_MAX);
-    ast_node *slice_defaults[] = {NULL, slice_start_def, slice_end_def};
+    ast_node *slice_defaults[] = {NULL, NULL, slice_end_def};
 
     symtab_add_builtin(s, "slice", arr_any_t, 3, slice_args, slice_defaults, builtins_slice);
 
-    ast_node *slice_start_def2 = ast_new_int(0);
     ast_node *slice_end_def2 = ast_new_int(INT_MAX);
-    ast_node *slice_defaults2[] = {NULL, slice_start_def2, slice_end_def2};
+    ast_node *slice_defaults2[] = {NULL, NULL, slice_end_def2};
     symtab_add_builtin(s, "slice", str_t, 3, slice_str_args, slice_defaults2, builtins_slice);
 
     // contains(...) -> int

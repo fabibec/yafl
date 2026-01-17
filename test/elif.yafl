@@ -1,26 +1,29 @@
-fn start() -> int {
+{-
+    Array Test
+    Tests array creation, indexing, assignment, and length.
+-}
+
+fn start() -> none {
     int |x| <- 10;
-    
-    print(>>Testing elif...<<);
+
+    println(>>Testing elif...<<);
 
     if |x| < 5 {
-        print(>>x < 5<<);
+        println(>>x < 5<<);
     } elif |x| < 15 {
-        print(>>x < 15 (Correct)<<);
+        println(>>x < 15 (Correct)<<);
     } else {
-        print(>>x >= 15<<);
+        println(>>x >= 15<<);
     }
 
     int |y| <- 20;
     if |y| < 5 {
-        print(>>y < 5<<);
+        println(>>y < 5<<);
     } elif |y| < 10 {
-        print(>>y < 10<<);
+        println(>>y < 10<<);
     } elif |y| < 25 {
-        print(>>y < 25 (Correct)<<);
+        println(>>y < 25 (Correct)<<);
     } else {
-        print(>>y >= 25<<);
+        println(>>y >= 25<<);
     }
-
-    ret 0;
 }

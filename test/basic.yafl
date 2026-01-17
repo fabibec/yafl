@@ -5,22 +5,21 @@
 
 str |app name| <- >>Basic Test<<;
 
-fn start() -> int {
-    print(>>--- Basic Test ---<<);
+fn start() -> none {
+    println(>>--- Basic Test ---<<);
     ops();
     recur(2);
-    ret 0;
 }
 
 fn recur(int: |i|) -> none {
     if |i| < #5 {
-        print(>>Going into recursion<<);
-        print(|i|);
+        println(>>Going into recursion<<);
+        println(|i|);
         |i|++;
         recur(|i|);
     }
-    print(>>Moving out of recursion<<);
-    print(|i|);
+    println(>>Moving out of recursion<<);
+    println(|i|);
 }
 
 fn ops() -> none {
@@ -28,24 +27,24 @@ fn ops() -> none {
     bool |test 2| <- Yes;
     bool |test 3| <- No;
     if |test 1| and |test 2| or |test 3| {
-        print(>>This is correct!<<);
+        println(>>This is correct!<<);
     }
 
     if |test 1| and |test 3| and |test 2| {
-        print(>>You should not see this<<);
+        println(>>You should not see this<<);
     }
 
-    if |test 1| and ~|test 3| {
-        print(>>This is correct!<<);
+    if |test 1| and not |test 3| {
+        println(>>This is correct!<<);
     }
 
     if -100 = -#64 {
-        print(>>This is correct!<<);
+        println(>>This is correct!<<);
     }
 
     if 100 ~= 2#1100100 {
-       print(>>You should not see this too<<);
+       println(>>You should not see this too<<);
     }
 
-    print(>>This program is called: << + |app name|);
+    println(>>This program is called: << + |app name|);
 }

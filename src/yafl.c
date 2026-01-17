@@ -23,8 +23,8 @@ void sig_handler(int signo) {
 }
 
 void usage(){
-    fprintf(stderr, "\033[1m\033[1;36mYafl bytecode executor by Fabian Becker\033[0m\n");
-    fprintf(stderr, "Usage: yafl [options] <input_file>.yaflb\n");
+    fprintf(stderr, "\033[1m\033[1;36mThe Yafl bytecode executor by Fabian Becker\033[0m\n");
+    fprintf(stderr, "Usage: yafl [options] <input_file>.yaflb [input arguments]\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "  -v, --verbose    Enable debug output\n");
     fprintf(stderr, "  -h, --help       Show this help\n");

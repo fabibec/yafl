@@ -1,3 +1,8 @@
+{-
+ This is Run Length Decoder in yafl.
+-}
+
+~~ Test cases
 fn start() -> none {
     arr'str |tests| <- [>>5[ab]<<, >>3[hello2[world]]<<, >>2[a3[b2[cd]]]<<, >>2[3[A2[B1[C]]]D]<<];
     arr'str |expected| <- [>>ababababab<<, >>helloworldworldhelloworldworldhelloworldworld<<,
@@ -22,13 +27,10 @@ fn start() -> none {
     println(>>Decoded: << + decode(|inpt|));
 }
 
-fn is_digit(str: |chr|) -> bool {
-    if len(|chr|) ~= 1 { ret No; }
-    int |ascii val| <- to_int(|chr|);
-    if |ascii val| >= to_int(>>0<<) and |ascii val| <= to_int(>>9<<) { ret Yes; }
-    ret No;
+fn is_digit(str: |c|) -> bool {
+    int |v| <- to_int(|c|);
+    ret |v| >= to_int(>>0<<) and |v| <= to_int(>>9<<);
 }
-
 
 ~~ Wrapper
 int |idx|;
@@ -37,6 +39,7 @@ fn decode(str: |s|) -> str {
     ret decode_rec(|s|);
 }
 
+~~ Recursive Decoding
 fn decode_rec(str: |s|) -> str {
     str |result|;
 
@@ -51,7 +54,7 @@ fn decode_rec(str: |s|) -> str {
                 |idx|++;
             }
 
-            ~~ Recursive call + Skip [
+            ~~ Skip [ + Recursive call
             |idx|++;
             str |substr| <- decode_rec(|s|);
 

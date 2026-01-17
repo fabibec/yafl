@@ -257,66 +257,6 @@ void codegen_expr(ast_node *node) {
             break;
         }
 
-        case NODE_ARR_FILL: {
-            // new pseudo scope to prevent duplication of count and idx variables
-            symtab_enter_scope(prog_symtab);
-            codegen_expr(node->data.arr_fill.count);
-
-            yafl_t *cnt_type = type_new_simple(TYPE_SINT);
-            var_sym *cnt_sym = codegen_register_var(".count", cnt_type, node->line);
-            type_free(cnt_type);
-            prog_add_num(prog, cnt_sym->nr);
-            prog_add_op(prog, SETVAR);
-
-            yafl_t *idx_type = type_new_simple(TYPE_SINT);
-            var_sym *idx_sym = codegen_register_var(".idx", idx_type, node->line);
-            type_free(idx_type);
-            prog_add_num(prog, 0);
-            prog_add_num(prog, idx_sym->nr);
-            prog_add_op(prog, SETVAR);
-
-            int loop_start_pc = prog_next_pc(prog);
-
-            // idx < count
-            prog_add_num(prog, cnt_sym->nr);
-            prog_add_op(prog, GETVAR);
-            prog_add_num(prog, idx_sym->nr);
-            prog_add_op(prog, GETVAR);
-            prog_add_op(prog, LESS);
-
-            int jmp_out_pc = prog_add_num(prog, -1); // Placeholder
-            prog_add_op(prog, JUMPF);
-
-            // Generate elements in reverse order for MKARRAY
-            codegen_list_reverse(node->data.arr_fill.elements, NULL);
-
-            // Increment idx
-            prog_add_num(prog, idx_sym->nr);
-            prog_add_op(prog, GETVAR);
-            prog_add_op(prog, INC);
-            prog_add_num(prog, idx_sym->nr);
-            prog_add_op(prog, SETVAR);
-
-            // Jump back
-            prog_add_num(prog, loop_start_pc);
-            prog_add_op(prog, JUMP);
-
-            // Patch exit jump
-            prog_set_num(prog, jmp_out_pc, prog_next_pc(prog));
-
-            // Push total count for MKARRAY: count * list_length
-            int list_len = 0;
-            for (ast_node *e = node->data.arr_fill.elements; e; e = e->next) list_len++;
-            prog_add_num(prog, list_len);
-            prog_add_num(prog, cnt_sym->nr);
-            prog_add_op(prog, GETVAR);
-            prog_add_op(prog, MUL);
-
-            prog_add_op(prog, MKARRAY);
-            symtab_exit_scope(prog_symtab);
-            break;
-        }
-
         case NODE_CALL: {
             // Need to determine types of arguments to resolve overload
             int arg_count = 0;

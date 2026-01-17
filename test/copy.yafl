@@ -3,7 +3,7 @@
     Tests the copy() builtin for deep-copying arrays.
 -}
 
-fn start() -> int {
+fn start() -> none {
     arr'int |a| <- [1, 2, 3];
     arr'int |b| <- copy(|a|);
 
@@ -32,5 +32,4 @@ fn start() -> int {
     } else {
         println(>>Deep copy failed for 2D array!<<);
     }
-    ret 0;
 }

@@ -124,12 +124,6 @@ ast_node *ast_new_arr_lit(ast_node *elements) {
     node->data.arr_lit.elements = elements;
     return node;
 }
-ast_node *ast_new_arr_fill(ast_node *elements, ast_node *count) {
-    ast_node *node = ast_new_node(NODE_ARR_FILL);
-    node->data.arr_fill.elements = elements;
-    node->data.arr_fill.count = count;
-    return node;
-}
 ast_node *ast_new_arr_idx(ast_node *base, ast_node *idx) {
     ast_node *node = ast_new_node(NODE_ARR_IDX);
     node->data.arr_idx.base = base;
@@ -397,9 +391,6 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
         case NODE_ARR_LIT:
             snprintf(label, sizeof(label), "ARR_LITERAL\\n");
             break;
-        case NODE_ARR_FILL:
-            snprintf(label, sizeof(label), "ARR_FILL\\n");
-            break;
 
 
 
@@ -585,14 +576,6 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
                 ast_print_dot_node(fp, node->data.arr_lit.elements, my_id);
             }
             break;
-        case NODE_ARR_FILL:
-            if (node->data.arr_fill.elements) {
-                ast_print_dot_node(fp, node->data.arr_fill.elements, my_id);
-            }
-            if (node->data.arr_fill.count) {
-                ast_print_dot_node(fp, node->data.arr_fill.count, my_id);
-            }
-            break;
 
         default:
             break;
@@ -742,10 +725,6 @@ void ast_free(ast_node *node) {
             break;
         case NODE_ARR_LIT:
             ast_free(node->data.arr_lit.elements);
-            break;
-        case NODE_ARR_FILL:
-            ast_free(node->data.arr_fill.elements);
-            ast_free(node->data.arr_fill.count);
             break;
 
         case NODE_STR:

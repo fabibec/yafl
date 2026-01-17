@@ -1,3 +1,10 @@
+{-
+    Range print Test
+    Tests ranges print in a nice format.
+-}
+
 fn start() -> none {
     println(range(10));
+    range'int |r|;
+    println(|r|);
 }

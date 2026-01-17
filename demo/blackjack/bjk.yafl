@@ -1,5 +1,22 @@
+{-
+ This is a blackjack game in yafl.
+-}
+
+~~ Globals
+arr'str |ranks| <- [>>A<<,>>2<<,>>3<<,>>4<<,>>5<<,>>6<<,>>7<<,>>8<<,>>9<<,>>10<<,>>J<<,>>Q<<,>>K<<];
+arr'str |suits| <- [>>S<<,>>H<<,>>D<<,>>C<<];
+arr'str |unknown val| <- [>><<];
+arr'str |unknown card| <- [
+    >>┌─────┐<<,
+    >>│?    │<<,
+    >>│     │<<,
+    >>│    ?│<<,
+    >>└─────┘<<
+];
+
+~~ Main Game Logic
 fn start() -> none {
-    int |first balance| <- 100;
+    int |first balance| <- 8#144; ~~ 100$
     int |balance| <- |first balance|;
 
     while |balance| > 0 {
@@ -85,35 +102,27 @@ fn start() -> none {
             println(>>Push! Bet returned.<<);
         }
         println(>>New balance: << + to_str(|balance|));
+
+        ~~ Game is over if no balance left
         if |balance| = 0 { stop; }
 
         ~~ Ask if Player wants to continue
-        bool |cont| <- to_bool(input_str(>>Play another round? (Yes/No): <<));
-        if ~|cont| {
+        bool |cont| <- to_bool(input_str(>>Do you want to continue? (Yes/No):<<));
+        if not |cont| {
             println(>>You quit. Your earnings: << + to_str(|balance| - |first balance|) + >>$<<);
             exit();
         }
     }
     println(>>Game over!<<);
-    print(>>^x1B[?25h<<);
 }
 
-arr'str |ranks| <- [>>A<<,>>2<<,>>3<<,>>4<<,>>5<<,>>6<<,>>7<<,>>8<<,>>9<<,>>10<<,>>J<<,>>Q<<,>>K<<];
-arr'str |suits| <- [>>S<<,>>H<<,>>D<<,>>C<<];
-arr'str |unknown val| <- [>><<];
-arr'str |unknown card| <- [
-    >>┌─────┐<<,
-    >>│?    │<<,
-    >>│     │<<,
-    >>│    ?│<<,
-    >>└─────┘<<
-];
-
+~~ Draws a random card
 fn draw_card() -> arr'str {
     ~~ arr: [Rank, Suit]
-    ret [|ranks|[rng(13)], |suits|[rng(4)]];
+    ret [|ranks|[rng(#D)], |suits|[rng(4)]];
 }
 
+~~ Calculates hand total
 fn hand_total(arr'arr'str: |hand|) -> int {
     int |total| <- 0;
     int |aces| <- 0;
@@ -147,6 +156,7 @@ fn hand_total(arr'arr'str: |hand|) -> int {
     ret |total|;
 }
 
+~~ Create visualization of single card
 fn ascii_card(arr'str: |card|) -> arr'str {
     if len(|card|[0]) = 0 {
         ret |unknown card|;
@@ -166,6 +176,19 @@ fn ascii_card(arr'str: |card|) -> arr'str {
     ];
 }
 
+~~ Combine a hand of ascii cards into a printable string
+fn ascii_hand(arr'arr'str: |hand|) -> str {
+    arr'str |lines|[5];
+    for arr'str |card| in |hand| {
+        |card| <- ascii_card(|card|);
+        for int |i| in range(5){
+            |lines|[|i|] <- |lines|[|i|] + |card|[|i|];
+        }
+    }
+    ret join(|lines|);
+}
+
+~~ Combines array of strings together, appends end string after every line
 fn join(arr'str: |list|, str: |end| <- >>^n<<) -> str {
     str |res|;
     for str |s| in |list| {
@@ -174,17 +197,7 @@ fn join(arr'str: |list|, str: |end| <- >>^n<<) -> str {
     ret |res|;
 }
 
-fn ascii_hand(arr'arr'str: |hand|) -> str {
-    arr'str |lines|[5];
-    for arr'str |card| in |hand| {
-        |card| <- ascii_card(|card|);
-        for int |line| in range(5){
-            |lines|[|line|] <- |lines|[|line|] + |card|[|line|];
-        }
-    }
-    ret join(|lines|);
-}
-
+~~ Clears terminal screen and moves cursor to top
 fn clear_screen() -> none {
     print(>>^x1B[?25l^x1B[2J^x1B[H<<);
 }

@@ -43,7 +43,7 @@
 %token KW_MATCH KW_CASE KW_DEFAULT
 %token S_RARROW S_LARROW
 %token S_LARROW_ADD S_LARROW_SUB S_LARROW_MUL S_LARROW_DIV S_LARROW_MOD
-%token OP_UN_DEC OP_UN_INC
+%token OP_UN_DEC OP_UN_INC OP_UN_NOT
 %token OP_BIN_LE OP_BIN_GE OP_BIN_NE
 %token OP_BIN_AND OP_BIN_OR
 %token T_STR T_BOOL T_NONE T_SINT T_FLOAT T_RANGE
@@ -69,7 +69,7 @@
 %left '<' '>' OP_BIN_LE OP_BIN_GE
 %left '+' '-'
 %left '*' '/' '%'
-%precedence NOT NEG
+%precedence OP_UN_NOT NEG
 %precedence OP_UN_INC OP_UN_DEC
 
 %%
@@ -192,8 +192,8 @@ var_decl_stmt:
             // arr'int a[5] represented as: a <- [default(int)] * 5
             yafl_t *inner = type_clone($1->comp_t);
             ast_node *def_val = ast_new_default(inner);
-            ast_node *fill_expr = ast_new_arr_fill(def_val, $4);
-            $$ = ast_new_decl($1, $2, fill_expr);
+            ast_node *arr_lit = ast_new_arr_lit(def_val);
+            $$ = ast_new_decl($1, $2, ast_new_binary(OP_MUL, arr_lit, $4));
         }
     }
     ;
@@ -287,14 +287,7 @@ expr:
     expr '+' expr { $$ = ast_new_binary(OP_ADD, $1, $3); }
     | expr '-' expr { $$ = ast_new_binary(OP_SUB, $1, $3); }
     | expr '*' expr {
-        if ($1->type == NODE_ARR_LIT) {
-            // [5] * 2 -> [5, 5]
-            $$ = ast_new_arr_fill($1->data.arr_lit.elements, $3);
-            $1->data.arr_lit.elements = NULL;
-            ast_free($1);
-        } else {
-            $$ = ast_new_binary(OP_MUL, $1, $3);
-        }
+        $$ = ast_new_binary(OP_MUL, $1, $3);
     }
     | expr '/' expr { $$ = ast_new_binary(OP_DIV, $1, $3); }
     | expr '%' expr { $$ = ast_new_binary(OP_MOD, $1, $3); }
@@ -306,7 +299,7 @@ expr:
     | expr OP_BIN_NE expr { $$ = ast_new_binary(OP_NE, $1, $3); }
     | expr OP_BIN_AND expr { $$ = ast_new_binary(OP_AND, $1, $3); }
     | expr OP_BIN_OR expr { $$ = ast_new_binary(OP_OR, $1, $3); }
-    | '~' expr %prec NOT { $$ = ast_new_unary(OP_NOT, $2); }
+    | OP_UN_NOT expr { $$ = ast_new_unary(OP_NOT, $2); }
     | '-' expr %prec NEG { $$ = ast_new_unary(OP_NEG, $2); }
     | expr OP_UN_INC { $$ = ast_new_unary(OP_INC, $1); }
     | expr OP_UN_DEC { $$ = ast_new_unary(OP_DEC, $1); }

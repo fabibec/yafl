@@ -1,104 +1,106 @@
-fn start() -> none {
-    cast();
-}
 
-fn cast() -> none {
-    print(>>--- Casting Test ---<<);
+{-
+    Casting Test
+    Tests a bunch of casts.
+-}
+
+fn start() -> none {
+    println(>>--- Casting Test ---<<);
 
     ~~ Bool -> Int
     int |i| <- to_int(Yes);
-    print(>>Bool Yes to int (1): << + to_str(|i|));
+    println(>>Bool Yes to int (1): << + to_str(|i|));
 
     int |j| <- to_int(No);
-    print(>>Bool No to int (0): << + to_str(|j|));
+    println(>>Bool No to int (0): << + to_str(|j|));
 
     ~~ Bool -> Str
-    print(>>Bool Yes to str (Yes): << + to_str(Yes));
-    print(>>Bool No to str (No): << + to_str(No));
+    println(>>Bool Yes to str (Yes): << + to_str(Yes));
+    println(>>Bool No to str (No): << + to_str(No));
 
     ~~ Bool -> Float
     float |bf1| <- to_float(Yes);
-    print(>>Bool Yes to float (1.0): << + to_str(|bf1|));
+    println(>>Bool Yes to float (1.0): << + to_str(|bf1|));
     float |bf2| <- to_float(No);
-    print(>>Bool No to float (0.0): << + to_str(|bf2|));
+    println(>>Bool No to float (0.0): << + to_str(|bf2|));
 
     ~~ Int -> Bool
     bool |k| <- to_bool(10);
-    print(>>Int 10 to bool (Yes): << + to_str(|k|));
+    println(>>Int 10 to bool (Yes): << + to_str(|k|));
     bool |l| <- to_bool(0);
-    print(>>Int 0 to bool (No): << + to_str(|l|));
+    println(>>Int 0 to bool (No): << + to_str(|l|));
 
     ~~ Int -> Float
     float |if1| <- to_float(123);
-    print(>>Int 123 to float (123.0): << + to_str(|if1|));
+    println(>>Int 123 to float (123.0): << + to_str(|if1|));
 
     ~~ Float -> Bool
     bool |fb1| <- to_bool(0.0);
-    print(>>Float 0.0 to bool (No): << + to_str(|fb1|));
+    println(>>Float 0.0 to bool (No): << + to_str(|fb1|));
     bool |fb2| <- to_bool(3.14);
-    print(>>Float 3.14 to bool (Yes): << + to_str(|fb2|));
+    println(>>Float 3.14 to bool (Yes): << + to_str(|fb2|));
 
     ~~ Float -> Int
     int |fl_to_int| <- to_int(3.99);
-    print(>>Float 3.99 to int (3): << + to_str(|fl_to_int|));
+    println(>>Float 3.99 to int (3): << + to_str(|fl_to_int|));
 
     ~~ Str -> Bool
     bool |sb1| <- to_bool(>>Yes<<);
-    print(>>Str 'Yes' to bool (Yes): << + to_str(|sb1|));
+    println(>>Str 'Yes' to bool (Yes): << + to_str(|sb1|));
     bool |sb2| <- to_bool(>>No<<);
-    print(>>Str 'No' to bool (No): << + to_str(|sb2|));
+    println(>>Str 'No' to bool (No): << + to_str(|sb2|));
     bool |sb3| <- to_bool(>>Whatever<<);
-    print(>>Str 'Whatever' to bool (No): << + to_str(|sb3|));
+    println(>>Str 'Whatever' to bool (No): << + to_str(|sb3|));
 
     ~~ Str -> Int
     int |si1| <- to_int(>>123<<);
-    print(>>Str '123' to int (0): << + to_str(|si1|));
+    println(>>Str '123' to int (0): << + to_str(|si1|));
 
     ~~ Str -> Float
     float |sf1| <- to_float(>>3.14<<);
-    print(>>Str '3.14' to float (0.0): << + to_str(|sf1|));
+    println(>>Str '3.14' to float (0.0): << + to_str(|sf1|));
 
-    print(>>--- Int Casts ---<<);
+    println(>>--- Int Casts ---<<);
     int |a| <- to_int(>>a<<);
-    print(>>'a' as int: << + to_str(|a|));
+    println(>>'a' as int: << + to_str(|a|));
 
     int |b| <- to_int(>>b<<);
-    print(>>'b' as int: << + to_str(|b|));
+    println(>>'b' as int: << + to_str(|b|));
 
     int |one| <- to_int(>>1<<);
-    print(>>'1' as int: << + to_str(|one|));
+    println(>>'1' as int: << + to_str(|one|));
 
     int |num| <- to_int(>>123<<);
-    print(>>'123' as int: << + to_str(|num|));
+    println(>>'123' as int: << + to_str(|num|));
 
     int |invalid| <- to_int(>>abc<<);
-    print(>>'abc' as int: << + to_str(|invalid|));
+    println(>>'abc' as int: << + to_str(|invalid|));
 
     int |hex| <- to_int(>>#FF<<);
-    print(>>'#FF' (255) as int: << + to_str(|hex|));
+    println(>>'#FF' (255) as int: << + to_str(|hex|));
 
     int |bin| <- to_int(>>2#101<<);
-    print(>>'2#101' (5) as int: << + to_str(|bin|));
+    println(>>'2#101' (5) as int: << + to_str(|bin|));
 
     ~~ Float Casts
     float |fa| <- to_float(>>a<<);
-    print(>>'a' as float: << + to_str(|fa|));
+    println(>>'a' as float: << + to_str(|fa|));
 
     float |fone| <- to_float(>>1<<);
-    print(>>'1' as float: << + to_str(|fone|));
+    println(>>'1' as float: << + to_str(|fone|));
 
     float |fnum| <- to_float(>>123.45<<);
-    print(>>'123.45' as float: << + to_str(|fnum|));
+    println(>>'123.45' as float: << + to_str(|fnum|));
 
     float |finvalid| <- to_float(>>abc<<);
-    print(>>'abc' as float: << + to_str(|finvalid|));
+    println(>>'abc' as float: << + to_str(|finvalid|));
 
     ~~ Special Floats
     float |fhex| <- to_float(>>#FF<<);
-    print(>>'#FF' (255.0) as float: << + to_str(|fhex|));
+    println(>>'#FF' (255.0) as float: << + to_str(|fhex|));
 
     float |fbase| <- to_float(>>2#101.1<<);
-    print(>>'2#101.1' (5.5) as float: << + to_str(|fbase|));
+    println(>>'2#101.1' (5.5) as float: << + to_str(|fbase|));
 }
 
 

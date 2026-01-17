@@ -249,16 +249,29 @@ val_t *val_mul (val_t *v1, val_t *v2) {
       return ret;
 
     case T_ARR:
-      if (v2->type != T_STR)
-        return &val_undef;
-      ret = val_create(T_STR);
-      for (int i = 0; i < v1->u.arr->size; i++) {
-        val_t *item = val_conv(T_STR, arr_get(v1->u.arr, i));
-        str_add_buf(ret->u.str, item->u.str->buf, item->u.str->len);
-        if (i != v1->u.arr->size-1)
-          str_add_buf(ret->u.str, v2->u.str->buf, v2->u.str->len);
+      if (v2->type == T_NUM) {
+        /* Array repetition */
+        int count = v2->u.num;
+        if (count < 0) count = 0;
+        ret = val_create(T_ARR);
+        for (int k = 0; k < count; k++) {
+            for (int i = 0; i < v1->u.arr->size; i++) {
+                arr_push(ret->u.arr, val_copy(arr_get(v1->u.arr, i)));
+            }
+        }
+        return ret;
+      } else if (v2->type == T_STR) {
+        /* Array join */
+        ret = val_create(T_STR);
+        for (int i = 0; i < v1->u.arr->size; i++) {
+            val_t *item = val_conv(T_STR, arr_get(v1->u.arr, i));
+            str_add_buf(ret->u.str, item->u.str->buf, item->u.str->len);
+            if (i != v1->u.arr->size-1)
+            str_add_buf(ret->u.str, v2->u.str->buf, v2->u.str->len);
+        }
+        return ret;
       }
-      return ret;
+      return &val_undef;
 
     default:
       return &val_undef;

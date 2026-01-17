@@ -1,3 +1,4 @@
+~~ Some errors
 fn start() -> none {
     ~~ int |x| <- >>hello<<;   ~~ Error: Assign string to int
     ~~ bool |b| <- 10;         ~~ Error: Assign int to bool

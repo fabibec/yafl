@@ -41,6 +41,7 @@ IGNORE [ \t\n]+
 "~=" { return OP_BIN_NE; }
 "and" { return OP_BIN_AND; }
 "or" { return OP_BIN_OR; }
+"not" { return OP_UN_NOT; }
 "++" { return OP_UN_INC; }
 "--" { return OP_UN_DEC; }
 
@@ -73,6 +74,7 @@ IGNORE [ \t\n]+
 }
 <STRING_STATE>"^<<" { str_append("<<", 2); }
 <STRING_STATE>"^n" { chr_append('\n'); }
+<STRING_STATE>"^t" { chr_append('\t'); }
 <STRING_STATE>"<<" {
     yylval.str = strdup(str_buffer ? str_buffer : "");
     str_reset();

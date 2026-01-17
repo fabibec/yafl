@@ -69,9 +69,9 @@ yafl_t* type_check_expr(ast_node *node) {
 
             bool types_match = type_is_identical(left, right);
             bool is_mul_str_int = (node->data.binary.op == OP_MUL) && (left->base_t == TYPE_STR && right->base_t == TYPE_SINT);
-            bool is_mul_arr_str = (node->data.binary.op == OP_MUL) && (left->base_t == TYPE_ARR && right->base_t == TYPE_STR);
+            bool is_mul_arr_int = (node->data.binary.op == OP_MUL) && (left->base_t == TYPE_ARR && right->base_t == TYPE_SINT);
 
-            if (!types_match && !is_mul_str_int && !is_mul_arr_str) {
+            if (!types_match && !is_mul_str_int && !is_mul_arr_int) {
                 char l_str[64], r_str[64];
                 type_to_str(left, l_str, 64);
                 type_to_str(right, r_str, 64);
@@ -88,8 +88,10 @@ yafl_t* type_check_expr(ast_node *node) {
                     }
                     break;
                 case OP_MUL:
-                    if (is_mul_str_int || is_mul_arr_str) {
+                    if (is_mul_str_int) {
                         res = type_new_simple(TYPE_STR);
+                    } else if (is_mul_arr_int) {
+                        res = type_clone(left);
                     } else if (left->base_t == TYPE_FLOAT || left->base_t == TYPE_SINT) {
                         res = type_clone(left);
                     } else {
@@ -222,10 +224,6 @@ yafl_t* type_check_expr(ast_node *node) {
             return type_new_composite(first_type);
         }
 
-        case NODE_ARR_FILL: {
-            yafl_t *val_type = type_check_expr(node->data.arr_fill.elements);
-            return type_new_composite(val_type);
-        }
         case NODE_DEFAULT_VAL:
             return type_clone(node->data.default_val.type);
         case NODE_CAST:

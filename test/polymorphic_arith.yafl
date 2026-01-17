@@ -1,0 +1,22 @@
+{-
+    Polymorphic Arithmetics Test
+    Test operand overloads for str and arr.
+-}
+
+fn start() -> none {
+    ~~ Strings
+    str |s1| <- >>Hello << + >>World<<;
+    println(|s1|);
+
+    str |s2| <- >>abc<< * 3;
+    println(|s2|);
+
+    ~~ Arrays
+    arr'int |a1| <- [1, 2] * 3;
+    print(>>Array len: <<);
+    println(len(|a1|));
+
+    arr'int |a2| <- [1, 2] + [3, 4];
+    print(>>Array len: <<);
+    println(len(|a2|));
+}

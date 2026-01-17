@@ -35,7 +35,6 @@ typedef enum {
     NODE_UNARY,
 
     NODE_ARR_LIT,
-    NODE_ARR_FILL,
     NODE_ARR_ASSIGN,
     NODE_ARR_IDX,
 
@@ -153,10 +152,6 @@ typedef struct ast_node {
             struct ast_node *elements;
         } arr_lit;
         struct {
-            struct ast_node *elements;
-            struct ast_node *count;
-        } arr_fill;
-        struct {
             struct ast_node *base;
             struct ast_node *idx;
         } arr_idx;
@@ -220,7 +215,6 @@ ast_node *ast_new_unary(un_op_t op, ast_node* operand);
 
 
 ast_node *ast_new_arr_lit(ast_node *elements);
-ast_node *ast_new_arr_fill(ast_node *elements, ast_node *count);
 ast_node *ast_new_arr_idx(ast_node *base, ast_node *idx);
 ast_node *ast_new_arr_assign(ast_node *base, ast_node *idx, ast_node *value);
 

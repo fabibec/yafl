@@ -1,8 +1,14 @@
+{-
+ This is Game of Life in yafl.
+-}
+
+~~ Globals
 int |WIDTH| <- 30;
 int |HEIGHT| <- 15;
 int |ALIVE| <- 1;
 int |DEAD| <- 0;
 
+~~ Game loop
 fn start() -> none {
     ~~ Hide cursor
     print(>>^x1B[?25l<<);
@@ -21,26 +27,32 @@ fn is_digit(str: |c|) -> bool {
     ret |v| >= to_int(>>0<<) and |v| <= to_int(>>9<<);
 }
 
+~~ Parse the int following a certain substring
 fn parse_int_after(str: |line|, str: |substring|) -> int{
+    ~~ Jump over substring
     int |idx| <- contains(|line|,|substring|);
-    if |idx| = -1 {ret -1; }
+    if |idx| = -1 { ret -1; }
+    |idx| <-+ len(|substring|);
 
-    |idx| <- |idx| + len(|substring|);
+    ~~ Skip spaces
     while |line|[|idx|] = >> << { |idx|++; }
 
+    ~~ Calculate int
     int |val|;
     while is_digit(|line|[|idx|]) {
-        |val| <- |val| * 10 + (to_int(|line|[|idx|]) - to_int(>>0<<));
+        |val| <-* #A;
+        |val| <-+ (to_int(|line|[|idx|]) - to_int(>>0<<));
         |idx|++;
     }
-
     ret |val|;
 }
+
 
 fn init_field() -> arr'arr'int {
     arr'str |input args| <- args();
     arr'str |file content|;
 
+    ~~ Parse .rle file if provided
     if len(|input args|) = 1 {
         |file content| <- read(|input args|[0]);
         if len(|file content|) = 0 {
@@ -51,18 +63,18 @@ fn init_field() -> arr'arr'int {
         ~~ Skip comments
         int |line idx|;
         for str |line| in |file content| {
-            if |line|[0] = >>#<< { |line idx|++; next;}
+            if |line|[0] = >>#<< { |line idx|++; next; }
             stop;
         }
 
         ~~ Parse grid size
-        str |first line| <- slice(|file content|, |line idx|, |line idx|++)[0];
+        str |first line| <- |file content|[|line idx|];
         int |pattern width| <- parse_int_after(|first line|, >>x = <<);
         int |pattern height| <- parse_int_after(|first line|, >>y = <<);
 
         if |pattern width| > |WIDTH| or |pattern height| > |HEIGHT| {
             println(>>Error: Grid size << + to_str(|WIDTH|) + >>x<< + to_str(|HEIGHT|) +
-                >> to small for pattern of size << + to_str(|pattern width|) + >>x<< + to_str(|pattern height|) );
+                >> to small for pattern of size << + to_str(|pattern width|) + >>x<< + to_str(|pattern height|));
             exit();
         }
 
@@ -72,18 +84,21 @@ fn init_field() -> arr'arr'int {
 
         arr'arr'int |grid| <- init_dead_arr();
         println(>>Grid size: << + to_str(|WIDTH|) + >> x << + to_str(|HEIGHT|));
+        |line idx|++;
 
         ~~ Parse pattern
         int |x|;
         int |y|;
         int |cnt|;
-        for str |line| in slice(|file content|, |line idx|) {
+        for int |i| in range(|line idx|, len(|file content|)) {
+            str |line| <- |file content|[|i|];
+
             for str |char| in |line| {
                 match(|char|) {
                     case >>o<< -> {
                         ~~ live cell
                         if |cnt| = 0 { |cnt| <- 1; }
-                        for int |i| in range (|cnt|) {
+                        for int |j| in range (|cnt|) {
                             |grid|[|y| + |offset y|][|x| + |offset x|] <- |ALIVE|;
                             |x|++;
                         }
@@ -121,7 +136,6 @@ fn init_field() -> arr'arr'int {
         init_random(|grid|);
         ret |grid|;
     }
-
 }
 
 ~~ Init dead 2D-array

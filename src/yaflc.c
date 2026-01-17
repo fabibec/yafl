@@ -14,7 +14,7 @@ extern int yylex_destroy();
 extern FILE *yyin;
 
 static void usage(){
-    fprintf(stderr, "\033[1m\033[1;36mThe Yafl compilerby Fabian Becker\033[0m\n");
+    fprintf(stderr, "\033[1m\033[1;36mThe Yafl compiler by Fabian Becker\033[0m\n");
     fprintf(stderr, "Usage: yaflc [options] <input_file>.yafl\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "  -v, --verbose    Enable debug output\n");

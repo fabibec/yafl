@@ -98,6 +98,29 @@ static ast_node *fold_binary(ast_node *node) {
             default: break;
         }
     }
+    // Fold String Concatenation
+    else if (l->type == NODE_STR && r->type == NODE_STR && node->data.binary.op == OP_ADD) {
+        char *lv = l->data.string.value;
+        char *rv = r->data.string.value;
+        size_t len = strlen(lv) + strlen(rv) + 1;
+        char *new_str = malloc(len);
+        strcpy(new_str, lv);
+        strcat(new_str, rv);
+        res = ast_new_str(new_str);
+    }
+    // Fold String Repetition (Str * Int)
+    else if (l->type == NODE_STR && r->type == NODE_INT && node->data.binary.op == OP_MUL) {
+        char *lv = l->data.string.value;
+        int count = (int)r->data.integer.value;
+        if (count < 0) count = 0;
+        size_t slen = strlen(lv);
+        size_t len = (size_t)slen * count + 1;
+        char *new_str = calloc(1, len);
+        for (int i = 0; i < count; i++) {
+            strcat(new_str, lv);
+        }
+        res = ast_new_str(new_str);
+    }
 
     if (res) {
         changed = true;

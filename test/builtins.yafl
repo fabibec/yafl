@@ -1,9 +1,13 @@
-fn start() -> int {
+{-
+    Builtins Test
+    First simple test for the builtin interface.
+-}
+
+fn start() -> none {
     println(rng(5,10));
     int |a| <- input_int(>>Input a number: <<);
     println(>>The number is: << + to_str(|a|));
     sleep(1_000);
     str |b| <- input_str(>>Input a string: <<);
     println(>>Got string: << + |b|);
-    ret 0;
 }

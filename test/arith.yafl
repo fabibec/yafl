@@ -1,0 +1,26 @@
+{-
+    Arithmetics Test
+    Tests basic operations.
+-}
+
+
+fn start() -> none {
+    println(>>--- Numbers Test ---<<);
+    int |a| <- 10;
+    int |b| <- 3;
+    println(>>Int Add: << + to_str(|a| + |b|));
+    println(>>Int Sub: << + to_str(|a| - |b|));
+    println(>>Int Mul: << + to_str(|a| * |b|));
+    println(>>Int Div: << + to_str(|a| / |b|));
+    println(>>Int Mod: << + to_str(|a| % |b|));
+
+    float |f1| <- 3.14;
+    float |f2| <- 1.5;
+    println(>>Float Add: << + to_str(|f1| + |f2|));
+    println(>>Float Sub: << + to_str(|f1| - |f2|));
+    println(>>Float Mul: << + to_str(|f1| * |f2|));
+    println(>>Float Div: << + to_str(|f1| / |f2|));
+
+    println(>>Mixed Add (int+float): << + to_str(to_float(|a|) + |f1|));
+    println(>>--- End Numbers Test ---<<);
+}

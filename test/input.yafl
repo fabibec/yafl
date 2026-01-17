@@ -1,3 +1,8 @@
+{-
+    Input Test
+    Tests input functions.
+-}
+
 fn start() -> none {
     println(>>Testing input...<<);
     int |a| <- input_int(>>Enter number: <<);

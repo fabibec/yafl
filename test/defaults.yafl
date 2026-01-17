@@ -1,8 +1,12 @@
-fn start() -> int {
+{-
+    Defaults Test
+    Tests simple default arguments.
+-}
+
+fn start() -> none {
     foo(10);
     println(>>---<<);
     foo(10, 30);
-    ret 0;
 }
 
 fn foo(int : |a|, int : |b| <- 20) -> none {
