@@ -13,6 +13,7 @@
 void restore_cursor(void) {
     // ANSI escape code to show cursor
     printf("\033[?25h");
+    fflush(stdout);
 }
 
 void sig_handler(int signo) {

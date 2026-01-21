@@ -2,7 +2,16 @@
  This is a yafl language demo.
 -}
 
+int |global| <- #f;
+
 fn start() -> none {
+
+    ~~ Primitive types
+    bool |bool| <- Yes or No;
+    str |str| <- >>String<<;
+    int |int| <- 8#77_777;
+    float |float| <- 16#F.8^-1;
+
     ~~ Polymorphic operators
     arr'int |a1| <- [1, 2] + [3, 4];
     |a1| <-* 3;
@@ -11,10 +20,9 @@ fn start() -> none {
     str |s1| <- >>Hello<< + >> World<< * 5;
     println(|s1|);
 
-
-    ~~ Function Overloading + Slicing
+    ~~ Ranges + Function Overloading
     range'int |r| <- range(1,6,2);
-    str |s| <- slice(>>This is a Demo!<<, 10);
+    str |s| <- >>Demo<<;
     iter(|r|);
     iter(|s|);
 
@@ -30,7 +38,7 @@ fn start() -> none {
     println(|sliced| + >> has len = << + to_str(len(|sliced|)));
 }
 
-fn url(str: |host|, int: |port| <- 443, bool: |secure| <- Yes) -> none {
+fn url(str: |host|, int: |port| <- 10#443, bool: |secure| <- Yes) -> none {
     str |url|;
     if |secure| {
         |url| <-+ >>https://<<;
@@ -50,8 +58,8 @@ fn iter(range'int: |it|) -> none {
 
 fn iter(str: |s|) -> none {
     println(>>Iter for str<<);
-    for str |s| in |s| {
-        int |ascii| <- to_int(|s|);
-        println(>>Ascii: << + to_str(|ascii|) + >>, Str: << + |s|);
+    for str |c| in |s| {
+        int |ascii| <- to_int(|c|);
+        println(>>Ascii: << + to_str(|ascii|) + >>, Str: << + |c|);
     }
 }

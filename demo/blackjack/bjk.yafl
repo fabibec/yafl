@@ -199,5 +199,5 @@ fn join(arr'str: |list|, str: |end| <- >>^n<<) -> str {
 
 ~~ Clears terminal screen and moves cursor to top
 fn clear_screen() -> none {
-    print(>>^x1B[?25l^x1B[2J^x1B[H<<);
+    print(>>^x1B[2J^x1B[H<<);
 }

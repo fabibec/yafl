@@ -75,6 +75,18 @@ ast_node *ast_new_if(ast_node *cond, ast_node *then_b, ast_node *else_b) {
 
 
 ast_node *ast_new_for(ast_node* var, ast_node* iterable, ast_node* body) {
+    /* Check for shadowing: for int |i| in |i| */
+    char *var_name = NULL;
+    if (var->type == NODE_FOR_DECL) {
+        var_name = var->data.for_decl.name;
+    }
+
+    if (var_name && iterable->type == NODE_VAR) {
+        if (strcmp(var_name, iterable->data.var.name) == 0) {
+             log_error(var->line, "Loop variable '%s' cannot be the same as the iterable variable.", var_name);
+        }
+    }
+
     ast_node *node = ast_new_node(NODE_FOR);
     node->data.for_loop.var = var;
     node->data.for_loop.iterable = iterable;
@@ -407,7 +419,7 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
             free(sanitized);
             break;
         case NODE_BOOL:
-            snprintf(label, sizeof(label), "BOOL\\n%s", node->data.boolean.value ? "true" : "false");
+            snprintf(label, sizeof(label), "BOOL\\n%s", node->data.boolean.value ? "Yes" : "No");
             break;
         case NODE_VAR:
             snprintf(label, sizeof(label), "VAR\\n%s", node->data.var.name);

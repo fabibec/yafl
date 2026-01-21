@@ -2,9 +2,11 @@
 #include "builtins.h"
 #include "symtab.h"
 #include "utils.h"
+#include "logger.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/param.h>
 
 static void var_sym_free(void *ptr) {
     var_sym *sym = (var_sym*)ptr;
@@ -48,6 +50,41 @@ static void func_sym_free(void *ptr) {
         free(sym);
         sym = next;
     }
+}
+
+static int get_min_args(int num_params, struct ast_node **defaults) {
+    if (!defaults) return num_params;
+    for (int i = num_params - 1; i >= 0; i--) {
+        if (defaults[i] == NULL) {
+            return i + 1;
+        }
+    }
+    return 0;
+}
+
+static int is_signature_ambiguous(int num_params1, yafl_t **types1, struct ast_node **defs1,
+                                  int num_params2, yafl_t **types2, struct ast_node **defs2) {
+    int min1 = get_min_args(num_params1, defs1);
+    int max1 = num_params1;
+    int min2 = get_min_args(num_params2, defs2);
+    int max2 = num_params2;
+
+    int start = MAX(min1, min2);
+    int end = MIN(max1, max2);
+
+    // Check all possible overlapping ranges
+    for (int k = start; k <= end; k++) {
+        // Check if types match for first k arguments
+        int match = 1;
+        for (int i = 0; i < k; i++) {
+            if (!type_is_identical(types1[i], types2[i])) {
+                match = 0;
+                break;
+            }
+        }
+        if (match) return 1;
+    }
+    return 0;
 }
 
 void symtab_add_fixup(func_sym *sym, int pc_location) {
@@ -155,19 +192,12 @@ func_sym *symtab_add_func(symtab *table, const char *name, yafl_t *ret_type,
 
     func_sym *existing = hashmap_get(table->funcs, name);
 
-    // Check if this exact signature already exists
+    // Check for ambiguous signatures
     for (func_sym *overload = existing; overload; overload = overload->next_overload) {
-        if (overload->num_params == num_params) {
-            int same = 1;
-            for (int i = 0; i < num_params; i++) {
-                if (!type_is_identical(overload->param_types[i], param_types[i])) {
-                    same = 0;
-                    break;
-                }
-            }
-            if (same) {
-                return NULL;
-            }
+        if (is_signature_ambiguous(num_params, param_types, default_values,
+                                   overload->num_params, overload->param_types, overload->default_values)) {
+            log_error(-1, "Ambiguous function overload for '%s'. Signature conflicts with existing definition.", name);
+            return NULL;
         }
     }
 
@@ -223,19 +253,12 @@ func_sym *symtab_add_builtin(symtab *table, const char *name, yafl_t* ret_type,
                                int num_params, yafl_t **param_types, struct ast_node **default_values, codegen_fn codegen) {
     func_sym *existing = hashmap_get(table->funcs, name);
 
-   // Check if this exact signature already exists
+   // Check for ambiguous signatures
     for (func_sym *overload = existing; overload; overload = overload->next_overload) {
-        if (overload->num_params == num_params) {
-            int same = 1;
-            for (int i = 0; i < num_params; i++) {
-                if (!type_is_identical(overload->param_types[i], param_types[i])) {
-                    same = 0;
-                    break;
-                }
-            }
-            if (same) {
-                return NULL;
-            }
+        if (is_signature_ambiguous(num_params, param_types, default_values,
+                                   overload->num_params, overload->param_types, overload->default_values)) {
+            log_error(-1, "Ambiguous builtin overload for '%s'. Signature conflicts with existing definition.", name);
+            return NULL;
         }
     }
 

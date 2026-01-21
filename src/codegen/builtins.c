@@ -9,8 +9,7 @@
 /* --- Helpers --- */
 
 /*
- * Helper to generate code for an argument.
- * Assumes node is not NULL (Inline call only).
+ * Helper to generate code for an argument of an index.
  */
 static void codegen_builtin_arg(prog_t *prog, ast_node *node, func_sym *sym, int arg_idx) {
     // Inline: Find argument expression
@@ -498,6 +497,7 @@ void builtins_register(symtab *s) {
     yafl_t *len_str_args[] = {str_t};
     symtab_add_builtin(s, "len", int_t, 1, len_arr_args, NULL, builtins_len_arr);
     symtab_add_builtin(s, "len", int_t, 1, len_str_args, NULL, builtins_len_str);
+
     // copy(...) -> arr'any
     symtab_add_builtin(s, "copy", arr_any_t, 1, len_arr_args, NULL, builtins_copy);
 

@@ -29,7 +29,7 @@
 \begin{abstract}
 This report details the design and implementation of \texttt{YAFL}, a statically and strongly typed procedural programming language submitted for the Compiler Construction study project.
 Designed to explicitly deviate from C-style syntax and semantics, \texttt{YAFL} features a unique pipe-based identifier system, base-$N$ numeric literals, and lazy iterator abstractions.
-The language compiles to custom bytecode for an extended architecture of the provided \texttt{VM3} virtual machine, which was modified to support custom opcodes for hashing, slicing, and File I/O functions.
+The language compiles to custom bytecode for an extended architecture of the provided \texttt{VM3} virtual machine, which was modified to support custom opcodes for iterators, slicing, and File I/O functions.
 \end{abstract}
 
 \section{General Overview}
@@ -67,9 +67,9 @@ The \texttt{YAFL}  compiler is implemented in \texttt{C} and utilizes a pipeline
         \hline
         \textbf{Feature} & \textbf{Syntax / Operator} & \textbf{Description \& Examples} \\
         \hline\hline
-        \textbf{Identifiers} & \texttt{|variable name|} & Enclosed in pipes to separate them from keywords. This allows for \textbf{expressive names with spaces}. \newline Ex: \texttt{|user input|}, \texttt{|my counter|} \\
+        \textbf{Identifiers} & \texttt{|variable name|} & Enclosed in pipes to separate them from keywords. This allows for \textbf{expressive names with spaces}. \newline \textbf{Examples:} \texttt{|user input|}, \texttt{|my counter|} \\
         \hline
-        \textbf{Functions} & \texttt{fn ... -> type} & Explicit return type arrow. \newline \textbf{Examples:} \newline 1. \texttt{fn add(int: a, int: b) -> int \{...\}} \newline 2. \texttt{fn start() -> none \{...\}} \\
+        \textbf{Functions} & \texttt{fn ... -> type} & Explicit return type arrow. \newline \textbf{Examples:} \newline 1. \texttt{fn add(int:|a|, int:|b|) -> int \{...\}} \newline 2. \texttt{fn start() -> none \{...\}} \\
         \hline
         \textbf{Entry Point} & \texttt{start()} & The program execution begins at the function named \texttt{start}, chosen to clearly denote the entry point (analogous to \texttt{main} in C). \\
         \hline
@@ -82,7 +82,7 @@ The \texttt{YAFL}  compiler is implemented in \texttt{C} and utilizes a pipeline
 
 \subsection{Numeric and String Literals}
 Moreover the language supports a highly flexible number format. Beyond standard decimals, numbers can be prefixed with a base (2-16) using the hash syntax \texttt{base\#number}.
-If no base was provided \texttt{\#number} the literal will be interpreted as a hexadecimal number.
+If no base was provided (\texttt{\#number}), the literal will be interpreted as a hexadecimal number.
 \begin{itemize}
     \item \textbf{Base-N Floats:} This base logic extends to floating point numbers. Both the integral and fractional parts are interpreted in the specified base (e.g., \texttt{16\#F.8} equals $15.5$ decimal).
     \item \textbf{Formatting:} Underscores are ignored to allow digit grouping (e.g., \texttt{10\#1\_000}).
@@ -94,13 +94,13 @@ String literals are delimited by double chevrons (\texttt{>>...<<}), avoiding st
 The assignment operator is \texttt{<-}, emphasizing data flow. This allows the equals sign \texttt{=} to be repurposed for comparison, a significant deviation from \texttt{C}.
 \begin{itemize}
     \item \textbf{Comparison:} Equality is checked using \texttt{=} (not \texttt{==}). Inequality is denoted by \texttt{\textasciitilde=} (resembling \texttt{MATLAB}), replacing the traditional \texttt{!=}.
-    \item \textbf{Polymorphic Ops:} The arithmetic operators are overloaded for collections:
+    \item \textbf{Polymorphic Operators:} Some arithmetic operators are overloaded for types other than numbers, specifically:
     \begin{itemize}
         \item \textbf{Concatenation (\texttt{+}):} Joins two strings or merges two arrays.
         \item \textbf{Repetition (\texttt{*}):} Repeating a string or array $n$ times (e.g., \texttt{>>ab<< * 3} results in \texttt{>>ababab<<}).
     \end{itemize}
     \item \textbf{Logic \& Bitwise:} The keywords \texttt{and}, \texttt{or} and \texttt{not} are used for logical and bitwise operations, replacing \texttt{\&\&}, \texttt{||} and \texttt{!}.
-    \item \textbf{Increment/Decrement:} The operators \texttt{++} and \texttt{--} are postfix-only. Unlike \texttt{C}, they execute the operation and \textbf{return the updated value} immediately.
+    \item \textbf{Increment/Decrement:} The operators \texttt{++} and \texttt{-}\texttt{-} are postfix-only. Unlike \texttt{C}, they execute the operation and \textbf{return the updated value} immediately.
 \end{itemize}
 
 \section{Language Features}
@@ -112,17 +112,17 @@ The type system supports:
 
 \begin{itemize}
     \item \textbf{Primitives:} \texttt{int}, \texttt{float}, \texttt{bool}, and \texttt{str}. Primitives are passed by reference.
-    \item \textbf{Collections:} \texttt{arr} (typed arrays) and \texttt{range\'{}int} (lazy sequences).
+    \item \textbf{Collections:} \texttt{arr} (typed arrays) and \texttt{range\textquotesingle int} (lazy sequences).
     \item \textbf{Special:} \texttt{none} for empty returns.
 \end{itemize}
 Composite types (e.g., \texttt{arr\textquotesingle arr\textquotesingle str}) are supported.
 Uninitialized variables default to zero values (0, 0.0, \texttt{No}, or \texttt{>><<}).
 
 \subsection{Control Structures}
-\textbf{Conditionals:} Standard \texttt{if-elif-else} structures are lowered to nested \texttt{if} statements.
+\textbf{Conditionals:} Standard \texttt{if-elif-else} structures are converted to nested \texttt{if} statements.
 
 \textbf{Loops \& Iterators:} The \texttt{while} loop operates on boolean conditions.
-The \texttt{for} loop is a generalized iterator (syntax: \texttt{for <type> |v| in iterator}).
+The \texttt{for} loop uses iterators (syntax: \texttt{for <type> |v| in iterator}).
 
 \begin{itemize}
     \item \textbf{Lazy Evaluation:} The \texttt{range()} function is implemented as a lazy iterator. Instead of creating a full array on the virtual machine stack, the compiler emits the \texttt{MKRANGE} opcode, creating a lightweight state object \texttt{["\_\_RANGE\_\_", current, stop, step]} on the stack.
@@ -133,7 +133,7 @@ The \texttt{for} loop is a generalized iterator (syntax: \texttt{for <type> |v| 
 \end{itemize}
 
 \textbf{Match Statement:}
-The \texttt{match} statement replace complex \texttt{if-else} chains. Since \texttt{YAFL} allows matching on strings, a simple jump table is insufficient.
+The \texttt{match} statement can replace complex \texttt{if-else} chains. Since \texttt{YAFL} allows matching on strings, a simple jump table is insufficient.
 \begin{itemize}
     \item \textbf{Implementation:} The compiler generates a hashmap mapping case literals to bytecode addresses.
     \item \textbf{Execution:} The custom \texttt{SWITCH\_LOOKUP} opcode performs a hash lookup at runtime to determine the jump target, ensuring $O(1)$ performance even for string keys.
@@ -146,7 +146,7 @@ The \texttt{match} statement replace complex \texttt{if-else} chains. Since \tex
     This simplifies the parser, as built-ins like \texttt{args()} (which returns user arguments excluding the program name) are treated exactly like standard calls.
     \item \textbf{Execution Strategy (CALL\_PC):} The standard \texttt{VM3} virtual machine resolves function calls by name.
     This is insufficient for \texttt{YAFL's} overloading support, where multiple functions can share the same name.
-    To solve this, the custom \texttt{CALL\_PC} opcode was implemented. It dispatches calls to a specific bytecode address (Program Counter) determined during semantic analysis, ensuring the correct overloaded signature is targeted.
+    To solve this, the custom \texttt{CALL\_PC} opcode was implemented. It dispatches calls to a specific bytecode address (Program Counter), ensuring the correct overloaded signature is targeted.
     \item \textbf{Overloading:} Functions are identified by a signature combining the function name argument types and their order, allowing multiple definitions (e.g., specific \texttt{to\_int} implementations for different types).
     \item \textbf{Default Arguments:} Trailing arguments can have default values.
     The compiler enforces that all subsequent parameters also possess defaults.
@@ -219,45 +219,45 @@ The submitted project is structured in the following way:
   \endhead
   \texttt{args() -> arr'str} & Returns the command-line arguments passed to the program. \\
   \hline
-  \texttt{contains(str: |haystack|, str: |needle|) -> int} & Returns the starting index of \texttt{needle} in \texttt{haystack}, or -1 if not found. \\
+  \texttt{contains(str:|haystack|, str:|needle|) -> int} & Returns the starting index of \texttt{needle} in \texttt{haystack}, or -1 if not found. \\
   \hline
-  \texttt{copy(<arr|str|range>: |val|) -> <type>} & Creates a deep copy of an array, string, or range. \\
+  \texttt{copy(<arr|str>:|val|) -> <type>} & Creates a deep copy of an array or string. \\
   \hline
   \texttt{exit() -> none} & Immediately terminates the program. \\
   \hline
-  \texttt{input\_int(str: |prompt|) -> int} & Prints a prompt and reads an integer from stdin. For invalid integers 0 gets returned. \\
+  \texttt{input\_int(str:|prompt|) -> int} & Prints a prompt and reads an integer from stdin. For invalid integers 0 gets returned. \\
   \hline
-  \texttt{input\_str(str: |prompt|) -> str} & Prints a prompt and reads a line from stdin. \\
+  \texttt{input\_str(str:|prompt|) -> str} & Prints a prompt and reads a line from stdin. \\
   \hline
-  \texttt{len(<arr|str>: |val|) -> int} & Returns the number of elements in an array or characters in a string. \\
+  \texttt{len(<arr|str>:|val|) -> int} & Returns the number of elements in an array or characters in a string. \\
   \hline
-  \texttt{print(any: |val|) -> none} & Prints the string representation of a value to stdout. \\
+  \texttt{print(any:|val|) -> none} & Prints the string representation of a value to stdout. \\
   \hline
-  \texttt{println(any: |val|) -> none} & Prints the string representation of a value followed by a newline. \\
+  \texttt{println(any:|val|) -> none} & Prints the string representation of a value followed by a newline. \\
   \hline
-  \texttt{range(int: |start|, int: |stop|, int: |step| <- 1) -> range} & Creates a range iterator from \texttt{start} (inclusive) to \texttt{stop} (exclusive) with step \texttt{step}. \\
+  \texttt{range(int:|start|, int:|stop|, int:|step| <- 1) -> range} & Creates a range iterator from \texttt{start} (inclusive) to \texttt{stop} (exclusive) with step \texttt{step}. \\
   \hline
-  \texttt{range(int: |stop|) -> range} & Creates a range iterator from 0  (inclusive) to \texttt{stop} (exclusive) with step 1. \\
+  \texttt{range(int:|stop|) -> range} & Creates a range iterator from 0  (inclusive) to \texttt{stop} (exclusive) with step 1. \\
   \hline
-  \texttt{read(str: |path|) -> arr'str} & Reads a text file into an array of strings (lines). \\
+  \texttt{read(str:|path|) -> arr'str} & Reads a text file into an array of strings (lines). \\
   \hline
-  \texttt{rng(int: |min|, int: |max|) -> int} & Generates a random integer between \texttt{min} and \texttt{max} (inclusive). \\
+  \texttt{rng(int:|min|, int:|max|) -> int} & Generates a random integer between \texttt{min} and \texttt{max} (inclusive). \\
   \hline
-  \texttt{rng(int: |max|) -> int} & Generates a random integer between 0 and \texttt{max} (inclusive). \\
+  \texttt{rng(int:|max|) -> int} & Generates a random integer between 0 and \texttt{max} (inclusive). \\
   \hline
-  \texttt{sleep(int: |ms|) -> none} & Pauses program execution for \texttt{ms} milliseconds. \\
+  \texttt{sleep(int:|ms|) -> none} & Pauses program execution for \texttt{ms} milliseconds. \\
   \hline
-  \texttt{slice(<arr|str>: |v|, int: |s| <- 0, int: |e| <- len(|v|)) -> <type>} & Returns a slice from index \texttt{s} (inclusive) to \texttt{e} (exclusive). \\
+  \texttt{slice(<arr|str>:|v|, int:|s| <- 0, int:|e| <- len(|v|)) -> <type>} & Returns a slice from index \texttt{s} (inclusive) to \texttt{e} (exclusive). \\
   \hline
-  \texttt{to\_bool(<int|float|str>: |v|) -> bool} & Converts or parses a value to a boolean. \\
+  \texttt{to\_bool(<int|float|str>:|v|) -> bool} & Converts or parses a value to a boolean. \\
   \hline
-  \texttt{to\_float(<int|bool|str>: |v|) -> float} & Converts or parses a value to a float. \\
+  \texttt{to\_float(<int|bool|str>:|v|) -> float} & Converts or parses a value to a float. \\
   \hline
-  \texttt{to\_int(<float|bool|str>: |v|) -> int} & Converts or parses a value to an integer. \\
+  \texttt{to\_int(<float|bool|str>:|v|) -> int} & Converts or parses a value to an integer. \\
   \hline
-  \texttt{to\_str(<int|float|bool>: |v|) -> str} & Converts a value to its string representation. \\
+  \texttt{to\_str(<int|float|bool>:|v|) -> str} & Converts a value to its string representation. \\
   \hline
-  \texttt{write(str: |s|, str: |txt|, bool: |app| <- No) -> bool} & Writes or appends text to a file. Returns success status. \\ [1ex]
+  \texttt{write(str:|s|, str:|txt|, bool:|app| <- No) -> bool} & Writes or appends text to a file. Returns success status. \\ [1ex]
   \hline
 \end{xltabular}
 
@@ -279,7 +279,7 @@ Besides the already mentioned ones, these are the additionally created opcodes.
   \hline
   \texttt{READ\_FILE} & Reads a file by returning a string array of lines (newline gets stripped) \\
   \hline
-  \texttt{SLEEPMS} & Sleeps for the provided number of milliseconds ($\le10s$) by using \texttt{nanosleep()}\\
+  \texttt{SLEEPMS} & Sleeps for the provided number of milliseconds ($\le$10s) by using \texttt{nanosleep()}\\
   \hline
   \texttt{SLICE} & Slices a string, negative indexing (start from end) allowed, returns a deep copy \\
   \hline

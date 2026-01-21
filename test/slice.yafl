@@ -27,4 +27,21 @@ fn start() -> none {
 
     str |ss2| <- slice(|st|, 6, 11); ~~ World
     println(>>ss2: << + |ss2|);
+
+    ~~ Invalid / Edge case Slicing
+    println(>>--- Invalid / Edge Cases ---<<);
+
+    ~~ Start > End (Should return empty)
+    arr'int |e1| <- slice(|a|, 4, 2);
+    print(>>e1 (empty): <<);
+    println(|e1|);
+
+    ~~ Out of bounds (Should clip)
+    arr'int |e2| <- slice(|a|, -10, 20);
+    print(>>e2 (clipped): <<);
+    println(|e2|);
+
+    ~~ Start = End (Should return empty)
+    str |e3| <- slice(|st|, 5, 5);
+    println(>>e3 (empty): << + |e3|);
 }
