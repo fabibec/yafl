@@ -285,17 +285,39 @@ static const char *un_op_str(un_op_t op) {
 // Monotonic counter for unique id's
 static int dot_node_id = 0;
 
-/* Remove characters that can't be visualized */
+/* Remove characters that can't be visualized and escape quotes */
 char *ast_dot_str_escape(const char *s) {
     if (!s) return NULL;
-    char *ret = strdup(s);
-    char *p = ret;
+
+    // Calculate required length
+    size_t len = 0;
+    const char *p = s;
     while (*p) {
-        if (*p < 32 || *p > 126) {
-            *p = '?';
+        if (*p == '"' || *p == '\'' || *p == '\\') {
+            len += 2;
+        } else {
+            len++;
         }
         p++;
     }
+
+    char *ret = malloc(len + 1);
+    if (!ret) return NULL;
+
+    char *d = ret;
+    p = s;
+    while (*p) {
+        if (*p == '"' || *p == '\'' || *p == '\\') {
+            *d++ = '\\';
+            *d++ = *p;
+        } else if (*p < 32 || *p > 126) {
+            *d++ = '?';
+        } else {
+            *d++ = *p;
+        }
+        p++;
+    }
+    *d = '\0';
     return ret;
 }
 
@@ -415,7 +437,7 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
         case NODE_STR:
             // Escape special chars in str
             char *sanitized = ast_dot_str_escape(node->data.string.value);
-            snprintf(label, sizeof(label), "STR\\n\\\"%s\\\"", sanitized);
+            snprintf(label, sizeof(label), "STR\\n%s", sanitized);
             free(sanitized);
             break;
         case NODE_BOOL:

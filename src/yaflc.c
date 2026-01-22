@@ -1,12 +1,12 @@
-#include <stdio.h>
-#include <string.h>
-#include <getopt.h>
-#include <stdlib.h>
 #include "ast.h"
 #include "codegen.h"
+#include "logger.h"
 #include "optim.h"
 #include "stringbuf.h"
-#include "logger.h"
+#include <getopt.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 extern ast_node *root;
 extern int yyparse();

@@ -343,7 +343,7 @@ int main (int argc, char **argv) {
   char bytecodefile[100];
   snprintf(bytecodefile, sizeof(bytecodefile), "%s.vm3", argv[optind]);
   prog_write(p, bytecodefile);
-  exec_t *e = exec_new(p);
+  exec_t *e = exec_new(p, 0, NULL);
   exec_set_debuglvl(e, verbose);
   exec_run(e);
 

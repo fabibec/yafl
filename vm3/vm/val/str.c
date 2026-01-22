@@ -180,9 +180,12 @@ void v_str_serialize (FILE *f, val_t *v) {
 
 val_t *v_str_deserialize (FILE *f) {
   val_t *v = v_str_create();
+  /* My exponential growth shot me in the foot
+    -> i need to do proper allocation here */
   v->u.str->len = read_int(f);
   v->u.str->cap = v->u.str->len + 1;
-  v->u.str->buf = malloc(v->u.str->cap);
+  v->u.str->buf = realloc(v->u.str->buf, v->u.str->cap);
+
   v->u.str->buf[v->u.str->len] = 0;
   if (v->u.str->len > 0) {
     int nr = fread(v->u.str->buf, v->u.str->len, 1, f);

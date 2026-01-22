@@ -71,10 +71,10 @@ int main(int argc, char **argv) {
     // Get filename
     if (optind < argc) {
         filename = argv[optind];
+        check_file(filename);
     } else {
         usage();
     }
-    check_file(filename);
 
     // Load bytecode
     prog_t *p = prog_read(filename);
@@ -89,6 +89,19 @@ int main(int argc, char **argv) {
 
     // Run
     exec_run(e);
+
+    // Cleanup
+    vals_unmark();
+    vals_sweep();
+
+    if (e) {
+        if (e->vstack) vstack_free(e->vstack);
+        if (e->vars) vstack_free(e->vars);
+        free(e);
+    }
+    if (p) {
+        free(p);
+    }
 
     return 0;
 }

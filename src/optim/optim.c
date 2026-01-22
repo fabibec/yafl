@@ -260,7 +260,7 @@ static ast_node *traverse(ast_node *node) {
 
                 ast_node *chain = node->next;
                 node->next = NULL;
-                free(node);
+                ast_free(node);
 
                 if (found && selected_body) {
                     ast_append(selected_body, chain);
