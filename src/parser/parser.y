@@ -1,16 +1,13 @@
 %code requires {
-    #include <stdint.h>
     #include "ast.h"
     #include "types.h"
 }
 
 %{
-    #include <stdio.h>
-    #include <stdint.h>
-    #include <inttypes.h>
-    #include <string.h>
     #include "ast.h"
     #include "logger.h"
+    #include <stdio.h>
+    #include <string.h>
 
     extern int yylineno;
 
@@ -34,13 +31,17 @@
     yafl_t *type;
 }
 
+/* Destructors for error handling */
+%destructor { free($$); } <str>
+%destructor { ast_free($$); } <node>
+%destructor { type_free($$); } <type>
+
 /* Lexer Tokens */
 %token <nr> L_INT L_BOOL
 %token <fl_nr> L_FLOAT
 %token <str> L_STR ID ID_VAR
 %token KW_FN KW_RET KW_IF KW_ELIF KW_ELSE KW_WHILE KW_FOR KW_IN KW_NEXT KW_STOP
-%token KW_WHERE
-%token KW_MATCH KW_CASE KW_DEFAULT
+%token KW_MATCH KW_CASE KW_OTHERWISE
 %token S_RARROW S_LARROW
 %token S_LARROW_ADD S_LARROW_SUB S_LARROW_MUL S_LARROW_DIV S_LARROW_MOD
 %token OP_UN_DEC OP_UN_INC OP_UN_NOT
@@ -75,32 +76,41 @@
 %%
 
 program:
-    top_level_list { root = $1; }
+    top_level_list {
+        root = $1;
+        $$ = NULL;
+    }
     ;
 
 top_level_list:
-    top_level_list top_level_item { $$ = ast_append($1, $2); }
+    top_level_list top_level_item {
+        $$ = ast_append($1, $2);
+    }
     | top_level_item
     ;
 
 top_level_item:
     fn_definition
     | var_decl_stmt /* Global vars */
+    | error ';' {
+        yyerrok;
+        $$ = NULL;
+    }
     ;
 
 /* --- FUNCTIONS --- */
+fn_signature:
+    KW_FN ID '(' param_list ')' S_RARROW return_type {
+        /* body inserted in next step */
+        $$ = ast_new_func($2, $4, $7, NULL);
+    }
+    ;
+
 fn_definition:
     fn_signature compound_stmt {
         /* body added here */
         $1->data.func.body = $2;
         $$ = $1;
-    }
-    ;
-
-fn_signature:
-    KW_FN ID '(' param_list ')' S_RARROW return_type {
-        /* body inserted in next step */
-        $$ = ast_new_func($2, $4, $7, NULL);
     }
     ;
 
@@ -111,7 +121,9 @@ param_list:
 
 param_list_nonempty:
     param
-    | param_list_nonempty ',' param { $$ = ast_append($1, $3); }
+    | param_list_nonempty ',' param {
+        $$ = ast_append($1, $3);
+    }
     ;
 
 param:
@@ -132,7 +144,9 @@ compound_stmt:
     ;
 
 statement_list:
-    statement_list statement { $$ = ast_append($1, $2); }
+    statement_list statement {
+        $$ = ast_append($1, $2);
+    }
     | %empty { $$ = NULL; }
     ;
 
@@ -158,7 +172,9 @@ match_stmt:
     ;
 
 case_list:
-    case_list case_item { $$ = ast_append($1, $2); }
+    case_list case_item {
+        $$ = ast_append($1, $2);
+    }
     | case_item
     ;
 
@@ -170,7 +186,7 @@ case_item:
         /* Empty body -> Fallthrough (represented by NULL body) */
         $$ = ast_new_case($2, NULL);
     }
-    | KW_DEFAULT S_RARROW compound_stmt {
+    | KW_OTHERWISE S_RARROW compound_stmt {
         /* Default case has NULL expr */
         $$ = ast_new_case(NULL, $3);
     }
@@ -284,25 +300,57 @@ KW_STOP ';' {
 
 /* --- expressions --- */
 expr:
-    expr '+' expr { $$ = ast_new_binary(OP_ADD, $1, $3); }
-    | expr '-' expr { $$ = ast_new_binary(OP_SUB, $1, $3); }
+    expr '+' expr {
+        $$ = ast_new_binary(OP_ADD, $1, $3);
+    }
+    | expr '-' expr {
+        $$ = ast_new_binary(OP_SUB, $1, $3);
+    }
     | expr '*' expr {
         $$ = ast_new_binary(OP_MUL, $1, $3);
     }
-    | expr '/' expr { $$ = ast_new_binary(OP_DIV, $1, $3); }
-    | expr '%' expr { $$ = ast_new_binary(OP_MOD, $1, $3); }
-    | expr '<' expr { $$ = ast_new_binary(OP_LT, $1, $3); }
-    | expr '>' expr { $$ = ast_new_binary(OP_GT, $1, $3); }
-    | expr '=' expr { $$ = ast_new_binary(OP_EQ, $1, $3); }
-    | expr OP_BIN_LE expr { $$ = ast_new_binary(OP_LE, $1, $3); }
-    | expr OP_BIN_GE expr { $$ = ast_new_binary(OP_GE, $1, $3); }
-    | expr OP_BIN_NE expr { $$ = ast_new_binary(OP_NE, $1, $3); }
-    | expr OP_BIN_AND expr { $$ = ast_new_binary(OP_AND, $1, $3); }
-    | expr OP_BIN_OR expr { $$ = ast_new_binary(OP_OR, $1, $3); }
-    | OP_UN_NOT expr { $$ = ast_new_unary(OP_NOT, $2); }
-    | '-' expr %prec NEG { $$ = ast_new_unary(OP_NEG, $2); }
-    | expr OP_UN_INC { $$ = ast_new_unary(OP_INC, $1); }
-    | expr OP_UN_DEC { $$ = ast_new_unary(OP_DEC, $1); }
+    | expr '/' expr {
+        $$ = ast_new_binary(OP_DIV, $1, $3);
+    }
+    | expr '%' expr {
+        $$ = ast_new_binary(OP_MOD, $1, $3);
+    }
+    | expr '<' expr {
+        $$ = ast_new_binary(OP_LT, $1, $3);
+    }
+    | expr '>' expr {
+        $$ = ast_new_binary(OP_GT, $1, $3);
+    }
+    | expr '=' expr {
+        $$ = ast_new_binary(OP_EQ, $1, $3);
+    }
+    | expr OP_BIN_LE expr {
+        $$ = ast_new_binary(OP_LE, $1, $3);
+    }
+    | expr OP_BIN_GE expr {
+        $$ = ast_new_binary(OP_GE, $1, $3);
+    }
+    | expr OP_BIN_NE expr {
+        $$ = ast_new_binary(OP_NE, $1, $3);
+    }
+    | expr OP_BIN_AND expr {
+        $$ = ast_new_binary(OP_AND, $1, $3);
+    }
+    | expr OP_BIN_OR expr {
+        $$ = ast_new_binary(OP_OR, $1, $3);
+    }
+    | OP_UN_NOT expr {
+        $$ = ast_new_unary(OP_NOT, $2);
+    }
+    | '-' expr %prec NEG {
+        $$ = ast_new_unary(OP_NEG, $2);
+    }
+    | expr OP_UN_INC {
+        $$ = ast_new_unary(OP_INC, $1);
+    }
+    | expr OP_UN_DEC {
+        $$ = ast_new_unary(OP_DEC, $1);
+    }
     | '(' expr ')' { $$ = $2; }
     | primary
     ;

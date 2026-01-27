@@ -2,6 +2,7 @@
 #define _VECTOR_H_
 #include <stdbool.h>
 #include <stddef.h>
+/* Simple dynamic array with destructor */
 
 typedef void (*vector_destructor)(void *);
 

@@ -72,12 +72,12 @@ void type_to_str(const yafl_t *t, char *buf, size_t len) {
         case TYPE_GENERIC:snprintf(buf, len, "any"); break;
         case TYPE_RANGE: snprintf(buf, len, "range"); break;
         case TYPE_ARR: {
-            char inner[128];
+            char inner[124];
             if (t->comp_t) {
                 type_to_str(t->comp_t, inner, sizeof(inner));
-                snprintf(buf, len, "arr'%s", inner);
+                snprintf(buf, len, "arr\'%s", inner);
             } else {
-                snprintf(buf, len, "arr'?");
+                snprintf(buf, len, "arr\'?");
             }
             break;
         }

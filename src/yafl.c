@@ -1,4 +1,5 @@
 #include "prog.h"
+#include "logger.h"
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,20 +7,35 @@
 #include <signal.h>
 /* Yafl bytecode executor or wrapper for the vm3 executable */
 
-/*
-    I unset the cursor in some demos, if the user presses Strg+C (SIGINT)
-    the cursor isn't reset, so we will force this here
-*/
-void restore_cursor(void) {
+static exec_t *e;
+static prog_t *p;
+
+static void cleanup(){
+    // GC Cleanup
+    vals_unmark();
+    vals_sweep();
+
+    if (e) {
+        if (e->vstack) vstack_free(e->vstack);
+        if (e->vars) vstack_free(e->vars);
+        free(e);
+    }
+    if (p) {
+        free(p);
+    }
     // ANSI escape code to show cursor
     printf("\033[?25h");
     fflush(stdout);
 }
 
+/*
+    I unset the cursor in some demos, if the user presses Strg+C (SIGINT)
+    the cursor isn't reset, so we will force this here
+*/
 void sig_handler(int signo) {
     if (signo == SIGINT) {
-        restore_cursor();
-        exit(0);
+        cleanup();
+        exit(EXIT_SUCCESS);
     }
 }
 
@@ -35,20 +51,18 @@ void usage(){
 void check_file(char * fname) {
     char * file_extension_sep = strrchr(fname, '.');
     if(file_extension_sep && strcmp(file_extension_sep + 1, "yafl") == 0){
-        fprintf(stderr, "\033[1m\033[1;31mError:\033[0m This is a raw .yafl file, please use \'yaflc\' to compile first.\n");
-        exit(EXIT_FAILURE);
+        log_error(NO_LINE, "This is a raw .yafl file, please use \'yaflc\' to compile first.");
     } else if (file_extension_sep && strcmp(file_extension_sep + 1, "yaflb") == 0){
         return;
     } else {
-        fprintf(stderr, "\033[1m\033[1;31mError:\033[0m Invalid file extension received for \'%s\'. Expected .yaflb\n", fname);
-        exit(EXIT_FAILURE);
+        log_error(NO_LINE, "Invalid file extension received for \'%s\'. Expected \'.yaflb\'.", fname);
     }
 }
 
 int main(int argc, char **argv) {
     // Register signal handler and cleanup
     signal(SIGINT, sig_handler);
-    atexit(restore_cursor);
+    atexit(cleanup);
 
     char *filename = NULL;
     int debug_idx = E_ERR;
@@ -77,31 +91,17 @@ int main(int argc, char **argv) {
     }
 
     // Load bytecode
-    prog_t *p = prog_read(filename);
+    p = prog_read(filename);
     if (!p) {
-        fprintf(stderr, "Failed to read bytecode from %s\n", filename);
-        exit(EXIT_FAILURE);
+        log_error(NO_LINE, "Failed to read bytecode from %s\n", filename);
     }
 
     // Create executor + pass remaining args
-    exec_t *e = exec_new(p, argc - optind - 1, (const char **)(argv + optind + 1));
+    e = exec_new(p, argc - optind - 1, (const char **)(argv + optind + 1));
     exec_set_debuglvl(e, debug_idx);
 
     // Run
     exec_run(e);
-
-    // Cleanup
-    vals_unmark();
-    vals_sweep();
-
-    if (e) {
-        if (e->vstack) vstack_free(e->vstack);
-        if (e->vars) vstack_free(e->vars);
-        free(e);
-    }
-    if (p) {
-        free(p);
-    }
 
     return 0;
 }

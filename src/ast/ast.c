@@ -1,10 +1,10 @@
+#include "arith.h"
+#include "ast.h"
+#include "logger.h"
+#include "types.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
-#include "ast.h"
-#include "arith.h"
-#include "types.h"
-#include "logger.h"
 
 /* From flex */
 extern int yylineno;
@@ -151,7 +151,7 @@ ast_node *ast_new_arr_assign(ast_node *base, ast_node *idx, ast_node *value) {
 }
 
 
-ast_node *ast_new_int(uint64_t value) {
+ast_node *ast_new_int(int value) {
     ast_node *node = ast_new_node(NODE_INT);
     node->data.integer.value = value;
     return node;
@@ -304,6 +304,7 @@ char *ast_dot_str_escape(const char *s) {
     char *ret = malloc(len + 1);
     if (!ret) return NULL;
 
+    // Escape
     char *d = ret;
     p = s;
     while (*p) {
@@ -327,8 +328,7 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
 
     int my_id = dot_node_id++;
 
-    // Node label based on type
-    char label[4096];
+    char label[4096]; // Node label based on type
     char type_buf[128]; // Buffer for type string conversion
 
     switch (node->type) {
@@ -429,7 +429,7 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
 
 
         case NODE_INT:
-            snprintf(label, sizeof(label), "INT\\n%lu", node->data.integer.value);
+            snprintf(label, sizeof(label), "INT\\n%d", node->data.integer.value);
             break;
         case NODE_FLOAT:
             snprintf(label, sizeof(label), "FLOAT\\n%f", node->data.float_nr.value);
@@ -622,11 +622,13 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
 }
 
 /* Print the ast as a dot file */
-void ast_print_dot(ast_node *node, const char *filename) {
-    FILE *fp = fopen(filename, "w");
+void ast_print_dot(ast_node *node, const char *basename) {
+    char dot_filename[256];
+    snprintf(dot_filename, sizeof(dot_filename), "%s.dot", basename);
+
+    FILE *fp = fopen(dot_filename, "w");
     if (!fp) {
-        fprintf(stderr, "Error: Could not open %s for writing\n", filename);
-        return;
+        log_error(NO_LINE, "Error: Could not open \'%s\' for writing\n", dot_filename);
     }
 
     fprintf(fp, "digraph AST {\n");
@@ -639,20 +641,23 @@ void ast_print_dot(ast_node *node, const char *filename) {
     fprintf(fp, "}\n");
     fclose(fp);
 
-    log_debug(-1, "AST written to %s", filename);
+    log_debug(NO_LINE, "AST written to %s", dot_filename);
 
     // Convert to svg automatically
-    char cmd[512];
-    snprintf(cmd, sizeof(cmd), "dot -Tsvg %s -o ast.svg", filename);
-    log_debug(-1, "Generating SVG: %s", cmd);
+    char cmd[1024];
+    char svg_filename[256];
+    snprintf(svg_filename, sizeof(svg_filename), "%s.svg", basename);
+
+    snprintf(cmd, sizeof(cmd), "dot -Tsvg %s -o %s", dot_filename, svg_filename);
+    log_debug(NO_LINE, "Generating SVG: %s", cmd);
     if (system(cmd) != 0) {
-        log_error(-1, "Error generating SVG. Is 'graphviz' installed?\n");
+        log_error(NO_LINE, "Error generating SVG. Is 'graphviz' installed?\n");
     } else {
-        log_debug(-1, "SVG generated at ast.svg");
+        log_debug(NO_LINE, "SVG generated at %s", svg_filename);
     }
 }
 
-/* Frees the AST recursively so valgrind doesn't complain ;-)*/
+/* Frees the AST recursively so valgrind doesn't complain ;-) */
 void ast_free(ast_node *node) {
     if (!node) return;
 

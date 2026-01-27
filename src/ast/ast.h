@@ -3,7 +3,6 @@
 #include "arith.h"
 #include "stdbool.h"
 #include "types.h"
-#include <stdint.h>
 #include <stdio.h>
 
 /* Abstract Syntax Tree */
@@ -21,6 +20,8 @@ typedef enum {
     NODE_ASSIGN,
 
     NODE_IF,
+    NODE_MATCH,
+    NODE_CASE,
 
     NODE_FOR,
     NODE_FOR_DECL,
@@ -43,10 +44,10 @@ typedef enum {
     NODE_STR,
     NODE_BOOL,
     NODE_VAR,
+
     NODE_CAST,
-    NODE_DEFAULT_VAL,
-    NODE_MATCH,
-    NODE_CASE
+
+    NODE_DEFAULT_VAL
 } ast_node_t;
 
 typedef struct ast_node {
@@ -112,12 +113,13 @@ typedef struct ast_node {
             // NULL for fallthrough
             struct ast_node *body;
         } case_stmt;
+
+
         struct {
             // loop variable
             struct ast_node *var;
             // iterable expression (range(...), array, string)
             struct ast_node *iterable;
-
             struct ast_node *body;
         } for_loop;
         struct{
@@ -132,10 +134,12 @@ typedef struct ast_node {
             struct ast_node *body;
         } while_loop;
 
+
         struct {
-            // Only prints one string
+            // Takes 1 arg of any type
             struct ast_node *arg;
         } print;
+
 
         struct {
             bin_op_t op;
@@ -158,12 +162,12 @@ typedef struct ast_node {
         struct {
             struct ast_node *base;
             struct ast_node *idx;
-            struct ast_node * value;
+            struct ast_node *value;
         } arr_assign;
 
 
         struct {
-            uint64_t value;
+            int value;
         } integer;
         struct {
             double value;
@@ -219,7 +223,7 @@ ast_node *ast_new_arr_idx(ast_node *base, ast_node *idx);
 ast_node *ast_new_arr_assign(ast_node *base, ast_node *idx, ast_node *value);
 
 
-ast_node *ast_new_int(uint64_t value);
+ast_node *ast_new_int(int value);
 ast_node *ast_new_float(double value);
 ast_node *ast_new_str(char* value);
 ast_node *ast_new_bool(bool value);

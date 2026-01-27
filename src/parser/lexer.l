@@ -3,21 +3,20 @@
     #include "parser.h"
     #include "stringbuf.h"
     #include "utils.h"
+    #include "logger.h"
+    #include <limits.h>
     #include <math.h>
     #include <stdio.h>
     #include <stdlib.h>
-    #include <stdint.h>
-    #include <inttypes.h>
-    #include <limits.h>
 %}
 
 /* Patterns */
 HEX_DIGIT [0-9A-Fa-f]
 
 BASE [0-9]+
-DEC_NUM (0|[1-9][0-9_]*)
-DEC_PART [0-9][0-9_]*
-HEX_NUM (0|[1-9A-Fa-f][0-9A-Fa-f_]*)
+DEC_NUM (0|[1-9]([0-9_]*[0-9])?)
+DEC_PART [0-9]([0-9_]*[0-9])?
+HEX_NUM (0|[1-9A-Fa-f]([0-9A-Fa-f_]*[0-9A-Fa-f])?)
 EXPONENT [+-]?[0-9]+
 
 VAR_IDENT "|"[^|\t\n\r]+"|"
@@ -41,19 +40,10 @@ IGNORE [ \t\n]+
 "~=" { return OP_BIN_NE; }
 "and" { return OP_BIN_AND; }
 "or" { return OP_BIN_OR; }
+
 "not" { return OP_UN_NOT; }
 "++" { return OP_UN_INC; }
 "--" { return OP_UN_DEC; }
-
-"MaxInt" {
-    yylval.nr = INT_MAX;
-    return L_INT;
-}
-
-"MinInt" {
-    yylval.nr = INT_MIN;
-    return L_INT;
-}
 
 "Yes" {
     yylval.nr = 1;
@@ -64,6 +54,14 @@ IGNORE [ \t\n]+
     return L_BOOL;
 }
 
+"NaN" {
+    yylval.fl_nr = INFINITY;
+    return L_FLOAT;
+}
+"Inf" {
+    yylval.fl_nr = 0;
+    return L_FLOAT;
+}
 
 ">>" {
     BEGIN(STRING_STATE);
@@ -73,6 +71,7 @@ IGNORE [ \t\n]+
     chr_append((char) val);
 }
 <STRING_STATE>"^<<" { str_append("<<", 2); }
+<STRING_STATE>"^^" { chr_append('^'); }
 <STRING_STATE>"^n" { chr_append('\n'); }
 <STRING_STATE>"^t" { chr_append('\t'); }
 <STRING_STATE>"<<" {
@@ -83,19 +82,17 @@ IGNORE [ \t\n]+
 }
 <STRING_STATE>(.|\n) { str_append(yytext, yyleng); }
 
-
 "fn" { return KW_FN; }
 "ret" { return KW_RET; }
 
 "match" { return KW_MATCH; }
 "case" { return KW_CASE; }
-"otherwise" { return KW_DEFAULT; }
+"otherwise" { return KW_OTHERWISE; }
 
 "if" { return KW_IF; }
 "elif" { return KW_ELIF; }
 "else"  { return KW_ELSE; }
 "while" { return KW_WHILE; }
-"where" { return KW_WHERE; }
 "for" { return KW_FOR; }
 "next" { return KW_NEXT; }
 "stop" { return KW_STOP; }
@@ -122,29 +119,21 @@ IGNORE [ \t\n]+
     int base = parse_base(yytext);
     int v;
     if(!base){
-        fprintf(stderr, "Error line %d: Invalid base for integer number '%s' (base >= 2 and base <= 16)\n", yylineno, yytext);
-        exit(1);
+        log_error(yylineno, "Invalid base for integer number '%s' (base >= 2 and base <= 16).", yytext);
     }
     char *s = (base >= 10) ? yytext + 3 : yytext + 2;
-    int ok = parse_based_int(base, s, &v);
-    if(!ok){
-        fprintf(stderr, "Error line %d: Invalid digit in integer number '%s' (every digit needs to be < %d)\n",
-            yylineno, s, base);
-        exit(1);
+    if(!parse_based_int(base, s, &v)){
+        log_warn(yylineno, "Integer literal '%s' overflowed (wrapped).", s);
     }
     yylval.nr = v;
     return L_INT;
 }
 
 {DEC_NUM} {
-    /* Decimal int with error handling */
+    /* Decimal int */
     int v;
-    int base = 10;
-    int ok = parse_based_int(base, yytext, &v);
-    if(!ok){
-        fprintf(stderr, "Error line %d: Invalid digit in integer number '%s' (every digit needs to be < %d)\n",
-            yylineno, yytext, base);
-        exit(1);
+    if(!parse_based_int(10, yytext, &v)){
+        log_warn(yylineno, "Integer literal '%s' overflowed (wrapped).", yytext);
     }
     yylval.nr = v;
     return L_INT;
@@ -152,46 +141,50 @@ IGNORE [ \t\n]+
 "#"{HEX_NUM} {
     /* Hexdecimal int */
     int v;
-    int base = 16;
-    parse_based_int(base, yytext + 1, &v);
-    /* Lexer already checks for errors */
+    if(!parse_based_int(16, yytext + 1, &v)){
+        log_warn(yylineno, "Integer literal '%s' overflowed (wrapped).", yytext);
+    }
     yylval.nr = v;
     return L_INT;
 }
 
-{BASE}"#"{HEX_NUM}("."{HEX_NUM})?("^"{EXPONENT})? {
+{BASE}"#"{HEX_NUM}"."{HEX_NUM}("^"{EXPONENT})? {
     /* Based float */
     int base = parse_base(yytext);
     if(!base){
-        fprintf(stderr, "Error in line %d: Invalid base for float number '%s' (base >= 2 and base <= 16)\n", yylineno, yytext);
-        exit(1);
+        log_error(yylineno, "Invalid base for float number '%s' (base >= 2 and base <= 16).", yytext);
     }
     char *s = (base >= 10) ? yytext + 3 : yytext + 2;
-    double v = parse_based_float(base, s);
-    if(isnan(v)){
-        fprintf(stderr, "Error in line %d: Invalid float literal '%s'\n", yylineno, s);
-        exit(1);
+    double v;
+    if(!parse_based_float(base, s, &v)){
+        log_error(yylineno, "Invalid float literal '%s'.", s);
+    }
+    if(isinf(v)){
+         log_warn(yylineno, "Float literal '%s' overflowed (infinity).", s);
     }
     yylval.fl_nr = v;
     return L_FLOAT;
 }
-{DEC_NUM}("."{DEC_PART})?("^"{EXPONENT})? {
-    /* Decimal float with error handling */
-    double v = parse_based_float(10, yytext);
-    if(isnan(v)){
-        fprintf(stderr, "Error line %d: Invalid digit in float number '%s' (every digit needs to be < 10)\n",
-            yylineno, yytext);
-        exit(1);
+{DEC_NUM}"."{DEC_PART}("^"{EXPONENT})? {
+    /* Decimal float */
+    double v;
+    if(!parse_based_float(10, yytext, &v)){
+        log_error(yylineno, "Invalid float literal '%s'.", yytext);
+    }
+    if(isinf(v)){
+         log_warn(yylineno, "Float literal '%s' overflowed (infinity).", yytext);
     }
     yylval.fl_nr = v;
     return L_FLOAT;
 }
-"#"{HEX_NUM}("."{HEX_NUM})?("^"{EXPONENT})? {
+"#"{HEX_NUM}"."{HEX_NUM}("^"{EXPONENT})? {
     /* Hexdecimal float */
-    double v = parse_based_float(16, yytext + 1);
-    if(isnan(v)){
-        fprintf(stderr, "Error line %d: Invalid hex float '%s'\n", yylineno, yytext);
-        exit(1);
+    double v;
+    if(!parse_based_float(16, yytext + 1, &v)){
+        log_error(yylineno, "Invalid hex float '%s'.", yytext);
+    }
+    if(isinf(v)){
+         log_warn(yylineno, "Float literal '%s' overflowed (infinity).", yytext);
     }
     yylval.fl_nr = v;
     return L_FLOAT;
@@ -200,6 +193,10 @@ IGNORE [ \t\n]+
 {VAR_IDENT} {
     yylval.str = strip_pipes(yytext);
     return ID_VAR;
+}
+
+"_" {
+    log_error(yylineno, "Invalid identifier '_'.");
 }
 {IDENT} {
     yylval.str = strdup(yytext);

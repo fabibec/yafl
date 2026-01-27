@@ -32,19 +32,26 @@ int parse_base(const char *s) {
 
 int parse_based_int(int base, const char *s, int* out) {
     int value = 0;
+    int overflow = 0;
 
     for (; *s; s++){
         if (*s == '_') { continue; }
 
         int d = digit_val(*s);
         if (d < 0 || d >= base) return 0;
-        value = value * base + d;
+
+        // GCC and Clang specific overflow check
+        int temp;
+        if (__builtin_mul_overflow(value, base, &temp)) overflow = 1;
+        value = temp;
+        if (__builtin_add_overflow(value, d, &temp)) overflow = 1;
+        value = temp;
     }
     *out = value;
-    return 1;
+    return !overflow;
 }
 
-double parse_based_float(int base, const char* s) {
+int parse_based_float(int base, const char* s, double *out) {
     int exp = 0;
     double value = 0.0;
     double frac = 1.0;
@@ -54,7 +61,7 @@ double parse_based_float(int base, const char* s) {
         if (*s == '_') { s++; continue; }
 
         int d = digit_val(*s++);
-        if (d < 0 || d >= base) return NAN;
+        if (d < 0 || d >= base) return 0;
         value = value * base + d;
     }
 
@@ -65,7 +72,7 @@ double parse_based_float(int base, const char* s) {
             if (*s == '_') { s++; continue; }
 
             int d = digit_val(*s++);
-            if (d < 0 || d >= base) return NAN;
+            if (d < 0 || d >= base) return 0;
             frac /= base;
             value += d * frac;
         }
@@ -77,5 +84,6 @@ double parse_based_float(int base, const char* s) {
         exp = strtol(s, NULL, 10);
     }
 
-    return value * pow(10, exp);
+    *out = value * pow(10, exp);
+    return 1;
 }

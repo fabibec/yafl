@@ -5,7 +5,7 @@
 #include <string.h>
 
 static const char *g_input_filename = NULL;
-static log_level g_log_level = LOG_INFO;
+static log_level g_log_level = LOG_ERROR;
 
 void logger_init(const char *filename) {
     g_input_filename = filename;
@@ -24,8 +24,7 @@ log_level logger_get_level() {
 }
 
 static void print_context(int line) {
-    if (!g_input_filename || strcmp(g_input_filename, "<stdin>") == 0) return;
-    if (line <= 0) return;
+    if (line == NO_LINE|| !g_input_filename) return;
 
     FILE *f = fopen(g_input_filename, "r");
     if (!f) return;
@@ -71,11 +70,16 @@ static void print_log(log_level lvl, int line, const char *fmt, va_list args){
     }
 
     char file_str[128];
+    // Filename string
     snprintf(file_str, 128, "%s:%d: ", g_input_filename ? g_input_filename : "unknown", line);
-    fprintf(stderr, "\033[1m%s\033[1;%dm%s: \033[0m", (line > 0) ? file_str : "", color_code, txt);
+
+    // File, Level, Message
+    fprintf(stderr, "\033[1m%s\033[1;%dm%s: \033[0m", (line != NO_LINE) ? file_str : "", color_code, txt);
     vfprintf(stderr, fmt, args);
     fprintf(stderr, "\n");
-    if (line > 0) print_context(line);
+
+    // File context if != NO_LINE
+    print_context(line);
 }
 
 void log_error(int line, const char *fmt, ...) {
@@ -83,7 +87,7 @@ void log_error(int line, const char *fmt, ...) {
     va_start(args, fmt);
     print_log(LOG_ERROR, line, fmt, args);
     va_end(args);
-    exit(1);
+    exit(EXIT_FAILURE);
 }
 
 void log_warn(int line, const char *fmt, ...) {

@@ -196,7 +196,7 @@ func_sym *symtab_add_func(symtab *table, const char *name, yafl_t *ret_type,
     for (func_sym *overload = existing; overload; overload = overload->next_overload) {
         if (is_signature_ambiguous(num_params, param_types, default_values,
                                    overload->num_params, overload->param_types, overload->default_values)) {
-            log_error(-1, "Ambiguous function overload for '%s'. Signature conflicts with existing definition.", name);
+            log_error(NO_LINE, "Ambiguous function overload for '%s'. Signature conflicts with existing definition.", name);
             return NULL;
         }
     }
@@ -257,7 +257,7 @@ func_sym *symtab_add_builtin(symtab *table, const char *name, yafl_t* ret_type,
     for (func_sym *overload = existing; overload; overload = overload->next_overload) {
         if (is_signature_ambiguous(num_params, param_types, default_values,
                                    overload->num_params, overload->param_types, overload->default_values)) {
-            log_error(-1, "Ambiguous builtin overload for '%s'. Signature conflicts with existing definition.", name);
+            log_error(NO_LINE, "Ambiguous builtin overload for '%s'. Signature conflicts with existing definition.", name);
             return NULL;
         }
     }

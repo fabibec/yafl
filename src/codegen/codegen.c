@@ -716,7 +716,7 @@ void codegen(ast_node *root, char *filename) {
             free(defaults);
 
             if (!sym) {
-                log_error(0, "Function '%s' already declared or duplicate signature",
+                log_error(node->line, "Function '%s' already declared or duplicate signature",
                             node->data.func.name);
             }
         } else if (node->type == NODE_DECL) {
@@ -771,13 +771,13 @@ void codegen(ast_node *root, char *filename) {
         int func_pc = prog_next_pc(prog);
         func->impl.pc = func_pc;
         prog_register_function(prog, node->data.func.name, func_pc);
-        log_debug(0, "Generating function %s at pc=%d (sym addr: %p)",
+        log_debug(NO_LINE, "Generating function %s at pc=%d (sym addr: %p)",
             node->data.func.name, func_pc, (void*)func);
 
         // Apply fixups
         fixup_node *fixup = func->fixups;
         while (fixup) {
-            log_debug(0, "  Backpatching call to %s at %d", node->data.func.name, fixup->pc_location);
+            log_debug(NO_LINE, "  Backpatching call to %s at %d", node->data.func.name, fixup->pc_location);
             prog_set_num(prog, fixup->pc_location, func_pc);
 
             fixup_node *next = fixup->next;
@@ -817,30 +817,30 @@ void codegen(ast_node *root, char *filename) {
     // start JUMP
     func_sym *start = symtab_lookup_func(prog_symtab, "start", NULL, 0);
     if (!start) {
-        log_error(0, "Entry point 'start()' not found");
+        log_error(NO_LINE, "Entry point 'start()' not found");
     }
     if (start->num_params != 0) {
-        log_error(0, "Entry point 'start' must have 0 parameters");
+        log_error(NO_LINE, "Entry point 'start' must have 0 parameters");
     }
     if (start->ret_type->base_t != TYPE_VOID && start->ret_type->base_t != TYPE_SINT) {
-        log_error(0, "Entry point 'start' must return 'none' or 'int'");
+        log_error(NO_LINE, "Entry point 'start' must return 'none' or 'int'");
     }
-    log_debug(0, "Start function found at pc=%d (sym addr: %p)", start->impl.pc, (void*)start);
+    log_debug(NO_LINE, "Start function found at pc=%d (sym addr: %p)", start->impl.pc, (void*)start);
     prog_set_num(prog, start_pc, start->impl.pc);
 
     if(logger_get_level() > LOG_INFO){
-        log_debug(-1, "Dumping symbol table and bytecode:");
+        log_debug(NO_LINE, "Dumping symbol table and bytecode:");
         symtab_dump(prog_symtab);
         prog_dump(prog);
     }
 
     symtab_free(prog_symtab);
-    log_info(0, "Code generation complete.");
+    log_info(NO_LINE, "Code generation complete.");
 
     // Write to file
     if (prog_write(prog, filename)) {
-        log_info(0, "Bytecode written to %s", filename);
+        log_info(NO_LINE, "Bytecode written to %s", filename);
     } else {
-        log_error(0, "Error writing bytecode to %s", filename);
+        log_error(NO_LINE, "Error writing bytecode to %s", filename);
     }
 }

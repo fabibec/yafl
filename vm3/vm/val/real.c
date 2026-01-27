@@ -70,7 +70,11 @@ static double parse_yafl_float(const char *s) {
         }
     }
 
-    return parse_based_float(base, p);
+    double result;
+    if(parse_based_float(base, p, &result)) {
+        return result;
+    }
+    return NAN;
 }
 
 val_t *v_real_conv (val_t *v) {

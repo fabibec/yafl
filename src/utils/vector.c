@@ -1,8 +1,9 @@
+#include "logger.h"
 #include "vector.h"
 #include <stdbool.h>
 #include <stdlib.h>
 
-#define VEC_INITIAL_CAPACITY 4
+#define VEC_INITIAL_CAPACITY 16
 
 void vector_init(vector *v, vector_destructor destroy) {
     v->size = 0;
@@ -15,6 +16,7 @@ void vector_push(vector *v, void *item) {
     if (v->size == v->capacity) {
         v->capacity *= 2;
         v->data = realloc(v->data, sizeof(void *) * v->capacity);
+        if(!v->data) log_error(NO_LINE, "Realloc failed in vector.");
     }
     v->data[v->size++] = item;
 }

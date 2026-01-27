@@ -1,6 +1,8 @@
 #ifndef _LOGGER_H_
 #define _LOGGER_H_
 
+#define NO_LINE -1
+
 typedef enum {
     LOG_ERROR = 0,
     LOG_WARN,

@@ -1,7 +1,10 @@
+#include "logger.h"
 #include "stringbuf.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define STRINGBUF_INITIAL_CAPACITY 16
 
 char *str_buffer = NULL;
 static int str_size = 0;
@@ -18,13 +21,12 @@ void str_append(const char *str, int len) {
     /* Dynamic allocation */
     if (str_size + len + 1 > str_capacity) {
         while (str_size + len + 1 > str_capacity) {
-            str_capacity = (str_capacity == 0) ? 16 : str_capacity * 2;
+            str_capacity = (str_capacity == 0) ? STRINGBUF_INITIAL_CAPACITY : str_capacity * 2;
         }
         str_buffer = realloc(str_buffer, str_capacity);
 
         if (!str_buffer) {
-            fprintf(stderr, "realloc failed in stringbuf\n");
-            exit(1);
+            log_error(NO_LINE, "Realloc failed in string buffer.");
         }
     }
     memcpy(str_buffer + str_size, str, len);

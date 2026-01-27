@@ -25,7 +25,7 @@ static void codegen_builtin_arg(prog_t *prog, ast_node *node, func_sym *sym, int
         codegen_expr(sym->default_values[arg_idx]);
     } else {
         // This will only occur if i did a mistake in type checking
-        log_error(-1, "Argument could not be resolved");
+        log_error(NO_LINE, "Argument could not be resolved");
     }
 }
 
@@ -442,10 +442,6 @@ void builtins_write(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) 
     prog_add_op(prog, CONSTANT);
     prog_add_op(prog, CALL);
 }
-
-/* fn is_digit(str: |c|) -> bool
-void builtins_write(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-}*/
 
 void builtins_register(symtab *s) {
     // args() -> arr'str

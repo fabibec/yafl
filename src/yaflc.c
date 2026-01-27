@@ -4,6 +4,7 @@
 #include "optim.h"
 #include "stringbuf.h"
 #include <getopt.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,6 +14,14 @@ extern int yyparse();
 extern int yylex_destroy();
 extern FILE *yyin;
 
+static void cleanup(){
+    // Free everything
+    if (root) ast_free(root);
+    if (yyin && yyin != stdin) fclose(yyin);
+    strb_free();
+    yylex_destroy();
+}
+
 static void usage(){
     fprintf(stderr, "\033[1m\033[1;36mThe Yafl compiler by Fabian Becker\033[0m\n");
     fprintf(stderr, "Usage: yaflc [options] <input_file>.yafl\n");
@@ -21,13 +30,13 @@ static void usage(){
     fprintf(stderr, "  -q, --quiet      Only show warnings and errors\n");
     fprintf(stderr, "  -o, --output     Specify output filename (default: code.yaflb)\n");
     fprintf(stderr, "  -h, --help       Show this help\n");
-    exit(EXIT_FAILURE);
 }
 
 int main(int argc, char **argv) {
     log_level level = LOG_INFO;
     char *input_file = NULL;
     char *output_file = "code.yaflb";
+    atexit(cleanup);
 
     static struct option long_options[] = {
         {"verbose", no_argument,       0, 'v'},
@@ -43,8 +52,8 @@ int main(int argc, char **argv) {
             case 'v': level = LOG_DEBUG; break;
             case 'q': level = LOG_WARN; break;
             case 'o': output_file = optarg; break;
-            case 'h': usage(); return 0;
-            default: usage(); return 1;
+            case 'h': usage(); return EXIT_SUCCESS;
+            default: usage(); return EXIT_FAILURE;
         }
     }
 
@@ -52,36 +61,34 @@ int main(int argc, char **argv) {
         input_file = argv[optind];
         yyin = fopen(input_file, "r");
         if (!yyin) {
-            log_error(0, "Cannot open input file: %s", input_file);
+            log_error(NO_LINE, "Cannot open input file: %s", input_file);
         }
     } else {
+        // No stdin parsing here ;-)
         usage();
+        return EXIT_FAILURE;
     }
 
-    logger_init(input_file ? input_file : "<stdin>");
+    logger_init(input_file);
     logger_set_level(level);
 
     int result = yyparse();
-    int ret_code = 0;
+    int ret_code = EXIT_SUCCESS;
 
     if (result == 0 && root) {
-        log_info(-1, "Parse successful!");
+        log_info(NO_LINE, "Parse successful!");
         optimize(root);
         if(logger_get_level() > LOG_INFO){
-            ast_print_dot(root, "ast.dot");
+            char base_file[256];
+            snprintf(base_file, sizeof(base_file), "%s", output_file);
+            char *ext = strrchr(base_file, '.');
+            if (ext) *ext = '\0';
+            ast_print_dot(root, base_file);
         }
         codegen(root, output_file);
-        ast_free(root);
     } else {
         // yyerror usually exits
-        fprintf(stderr, "Parse failed!\n");
-        ret_code = 1;
+        log_error(NO_LINE, "Parse failed!");
     }
-
-    // Free everything
-    if (input_file && yyin) fclose(yyin);
-    strb_free();
-    yylex_destroy();
-
     return ret_code;
 }

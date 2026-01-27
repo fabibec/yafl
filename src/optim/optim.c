@@ -42,8 +42,8 @@ static ast_node *fold_binary(ast_node *node) {
 
     // Fold Arithmetic (INT)
     if (l->type == NODE_INT && r->type == NODE_INT) {
-        uint64_t lv = l->data.integer.value;
-        uint64_t rv = r->data.integer.value;
+        int lv = l->data.integer.value;
+        int rv = r->data.integer.value;
 
         switch (node->data.binary.op) {
             case OP_ADD: res = ast_new_int(lv + rv); break;
@@ -367,5 +367,5 @@ void optimize(ast_node *root) {
         passes++;
     } while (changed && passes < 10);
 
-    log_info(0, "Optimization completed in %d passes", passes);
+    log_info(NO_LINE, "Optimization completed in %d passes", passes);
 }

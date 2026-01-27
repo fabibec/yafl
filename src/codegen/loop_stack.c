@@ -16,7 +16,7 @@ void loop_push(int continue_pc, bool has_iterator) {
 
 void loop_add_break_jump(int pc_loc) {
     if (!loop_stack) {
-        log_error(0, "Break statement outside of loop");
+        log_error(NO_LINE, "Break statement outside of loop");
     }
     jmp_lst *j = malloc(sizeof(jmp_lst));
     j->pc_loc = pc_loc;
