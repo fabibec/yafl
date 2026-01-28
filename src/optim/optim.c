@@ -8,7 +8,7 @@
 
 static bool changed = false;
 
-/* --- Helpers --- */
+/* Helpers */
 
 static bool is_constant(ast_node *node) {
     if (!node) return false;
@@ -29,8 +29,7 @@ static bool nodes_are_equal(ast_node *a, ast_node *b) {
     }
 }
 
-/* --- Constant Folding --- */
-
+/* Constant Folding */
 static ast_node *fold_binary(ast_node *node) {
     if (!is_constant(node->data.binary.left) || !is_constant(node->data.binary.right)) {
         return node;
@@ -111,7 +110,7 @@ static ast_node *fold_binary(ast_node *node) {
     // Fold String Repetition (Str * Int)
     else if (l->type == NODE_STR && r->type == NODE_INT && node->data.binary.op == OP_MUL) {
         char *lv = l->data.string.value;
-        int count = (int)r->data.integer.value;
+        int count = r->data.integer.value;
         if (count < 0) count = 0;
         size_t slen = strlen(lv);
         size_t len = (size_t)slen * count + 1;
@@ -168,9 +167,10 @@ static ast_node *fold_unary(ast_node *node) {
 static ast_node *traverse(ast_node *node) {
     if (!node) return NULL;
 
-    // IMPORTANT: Process the NEXT node in the chain FIRST.
-    // This ensures we have a stable pointer to the rest of the list
-    // before we potentially free or replace the CURRENT node.
+    /*
+        Bottom-up processing so subsequent nodes are already optimized
+        in this pass and therefore stable
+    */
     if (node->next) {
         node->next = traverse(node->next);
     }
@@ -331,14 +331,13 @@ static ast_node *traverse(ast_node *node) {
             node->data.while_loop.body = traverse(node->data.while_loop.body);
 
             // DCE: Constant false condition
-            if (node->data.while_loop.condition->type == NODE_BOOL) {
-                if (node->data.while_loop.condition->data.boolean.value == false) {
+            if (node->data.while_loop.condition->type == NODE_BOOL &&
+                node->data.while_loop.condition->data.boolean.value == false) {
                     ast_node *chain = node->next;
                     node->next = NULL;
                     ast_free(node);
                     changed = true;
                     return chain;
-                }
             }
             break;
 
@@ -347,13 +346,40 @@ static ast_node *traverse(ast_node *node) {
             node->data.for_loop.body = traverse(node->data.for_loop.body);
             break;
 
-        case NODE_FOR_DECL:
-        case NODE_FOR_VAR:
-        case NODE_PARAM:
-            // Nothing to optimize here
+        case NODE_CAST:
+            node->data.cast.expr = traverse(node->data.cast.expr);
+            break;
+
+        case NODE_ARR_LIT:
+            node->data.arr_lit.elements = traverse(node->data.arr_lit.elements);
+            break;
+
+        case NODE_ARR_IDX:
+            // Base can be a string or call expression
+            node->data.arr_idx.base = traverse(node->data.arr_idx.base);
+            node->data.arr_idx.idx = traverse(node->data.arr_idx.idx);
+            break;
+
+        case NODE_ARR_ASSIGN:
+            // Base can be a string or call expression
+            node->data.arr_assign.base = traverse(node->data.arr_assign.base);
+            node->data.arr_assign.idx = traverse(node->data.arr_assign.idx);
+            node->data.arr_assign.value = traverse(node->data.arr_assign.value);
+            break;
+
+        // Leaf nodes - nothing to traverse
+        case NODE_NEXT:
+        case NODE_STOP:
+        case NODE_INT:
+        case NODE_FLOAT:
+        case NODE_STR:
+        case NODE_BOOL:
+        case NODE_VAR:
+        case NODE_DEFAULT_VAL:
             break;
 
         default:
+            log_warn(NO_LINE, "Unhandled node type in optimization pass: %s", node_type_str(node->type));
             break;
     }
     return node;

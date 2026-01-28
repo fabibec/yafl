@@ -60,7 +60,7 @@
       "patterns": [
         {
           "name": "variable.other.yafl",
-          "match": "\\|[^|\n]+\\|"
+          "match": "\\|[^|\t\n]+\\|"
         }
       ]
     },

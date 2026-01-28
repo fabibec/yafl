@@ -169,8 +169,24 @@ yafl_t* type_check_expr(ast_node *node) {
                             node->data.call.name, arg_desc);
             }
 
+            yafl_t *ret_t = type_clone(fn->ret_type);
+
+            // Type inference for generic builtins
+            if (arg_count > 0) {
+                yafl_t *first_arg_t = arg_types[0];
+                if (ret_t->base_t == TYPE_GENERIC) {
+                    type_free(ret_t);
+                    ret_t = type_clone(first_arg_t);
+                } else if (ret_t->base_t == TYPE_ARR && ret_t->comp_t->base_t == TYPE_GENERIC) {
+                    if (first_arg_t->base_t == TYPE_ARR) {
+                        type_free(ret_t);
+                        ret_t = type_clone(first_arg_t);
+                    }
+                }
+            }
+
             type_list_free(arg_types, arg_count);
-            return type_clone(fn->ret_type);
+            return ret_t;
         }
 
         case NODE_UNARY:

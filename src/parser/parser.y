@@ -59,6 +59,7 @@
 %type <node> if_stmt opt_else for_stmt while_stmt next_stmt stop_stmt
 %type <node> match_stmt case_list case_item
 %type <node> for_loop_var
+%type <node> indexable
 %type <node> expr primary call_expr arr_expr
 %type <node> expr_list expr_list_opt
 %type <type> return_type type_specifier type_basic type_complex
@@ -233,8 +234,8 @@ assignment_stmt:
     | ID_VAR S_LARROW_MOD expr ';' {
         $$ = ast_new_assign($1, ast_new_binary(OP_MOD, ast_new_var(strdup($1)), $3));
     }
-    /* primary to allow multi dimension arrays */
-    | primary '[' expr ']' S_LARROW expr ';' {
+    /* indexable to allow multi dimension arrays but restrict literals */
+    | indexable '[' expr ']' S_LARROW expr ';' {
         $$ = ast_new_arr_assign($1, $3, $6);
     }
     ;
@@ -356,11 +357,25 @@ expr:
     ;
 
 primary:
-    L_INT { $$ = ast_new_int($1); }
-    | L_FLOAT { $$ = ast_new_float($1); }
-    | L_STR { $$ = ast_new_str($1); }
-    | L_BOOL { $$ = ast_new_bool($1); }
-    | ID_VAR { $$ = ast_new_var($1); }
+    L_INT {
+        $$ = ast_new_int($1);
+    }
+    | L_FLOAT {
+        $$ = ast_new_float($1);
+    }
+    | L_BOOL {
+        $$ = ast_new_bool($1);
+    }
+    | indexable
+    ;
+
+indexable:
+    ID_VAR {
+        $$ = ast_new_var($1);
+    }
+    | L_STR {
+        $$ = ast_new_str($1);
+    }
     | call_expr
     | arr_expr
     ;
@@ -369,8 +384,8 @@ arr_expr:
     '[' expr_list ']' {
         $$ = ast_new_arr_lit($2);
     }
-    /* primary to allow multi dimension arrays */
-    | primary '[' expr ']' {
+    /* indexable to allow multi dimension arrays but restrict literals */
+    | indexable '[' expr ']' {
         $$ = ast_new_arr_idx($1, $3);
     }
     ;
@@ -387,7 +402,9 @@ expr_list_opt:
     ;
 
 expr_list:
-    expr_list ',' expr { $$ = ast_append($1, $3); }
+    expr_list ',' expr {
+        $$ = ast_append($1, $3);
+    }
     | expr
     ;
 
@@ -400,20 +417,32 @@ type_specifier:
 
 return_type:
     type_specifier
-    | T_NONE { $$ = type_new_simple(TYPE_VOID); }
+    | T_NONE {
+        $$ = type_new_simple(TYPE_VOID);
+    }
     ;
 
 type_basic:
-    T_STR { $$ = type_new_simple(TYPE_STR); }
-    | T_BOOL { $$ = type_new_simple(TYPE_BOOL); }
-    | T_SINT { $$ = type_new_simple(TYPE_SINT); }
-    | T_FLOAT { $$ = type_new_simple(TYPE_FLOAT); }
+    T_STR {
+        $$ = type_new_simple(TYPE_STR);
+    }
+    | T_BOOL {
+        $$ = type_new_simple(TYPE_BOOL);
+    }
+    | T_SINT {
+        $$ = type_new_simple(TYPE_SINT);
+    }
+    | T_FLOAT {
+        $$ = type_new_simple(TYPE_FLOAT);
+    }
     ;
 
 type_complex:
     T_ARR '\'' type_specifier {
         $$ = type_new_composite($3);
     }
-    | T_RANGE { $$ = type_new_simple(TYPE_RANGE); }
+    | T_RANGE {
+        $$ = type_new_simple(TYPE_RANGE);
+    }
     ;
 %%

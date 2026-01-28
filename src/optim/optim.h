@@ -2,7 +2,7 @@
 #define _OPTIM_H_
 #include "ast.h"
 
-/* AST Optimization: Constant Folding & Dead Code Elimination*/
+/* AST Optimization: Constant Folding & Dead Code Elimination */
 
 void optimize(ast_node *root);
 

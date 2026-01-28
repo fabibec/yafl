@@ -219,7 +219,7 @@ ast_node *ast_append(ast_node *list, ast_node *node) {
 }
 
 /* String lookups for AST printing */
-static const char *node_type_str(ast_node_t type) {
+const char *node_type_str(ast_node_t type) {
     switch (type) {
         case NODE_FUNC: return "FUNC";
         case NODE_PARAM: return "PARAM";

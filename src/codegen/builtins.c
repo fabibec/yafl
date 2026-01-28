@@ -1,10 +1,11 @@
-#include "builtins.h"
-#include "types.h"
 #include "ast.h"
+#include "builtins.h"
 #include "codegen.h"
 #include "logger.h"
-#include <stdlib.h>
+#include "types.h"
+#include "type_checking.h"
 #include <limits.h>
+#include <stdlib.h>
 
 /* --- Helpers --- */
 
@@ -12,7 +13,6 @@
  * Helper to generate code for an argument of an index.
  */
 static void codegen_builtin_arg(prog_t *prog, ast_node *node, func_sym *sym, int arg_idx) {
-    // Inline: Find argument expression
     ast_node *arg = node->data.call.args;
     for (int i = 0; i < arg_idx && arg; i++) {
         arg = arg->next;
@@ -46,9 +46,7 @@ static void codegen_builtin_push_args(prog_t *prog, ast_node *node, func_sym *sy
         }
     }
 
-    int count = arg_count;
-
-    for (int i = count - 1; i >= 0; i--) {
+    for (int i = arg_count - 1; i >= 0; i--) {
         codegen_builtin_arg(prog, node, sym, i);
     }
 }
@@ -69,74 +67,68 @@ static void codegen_print_str(prog_t *prog, char *str) {
     prog_add_op(prog, DISCARD);
 }
 
+/* Helper to print a specific field of the range object */
+static void codegen_print_range_field(prog_t *prog, int index, int print_const_id) {
+    prog_add_op(prog, DUP);
+    prog_add_num(prog, index);
+    prog_add_op(prog, SWAP);
+    prog_add_op(prog, INDEX1);
+
+    prog_add_num(prog, 1); // Arg count
+    prog_add_num(prog, print_const_id);
+    prog_add_op(prog, CONSTANT);
+    prog_add_op(prog, CALL);
+    prog_add_op(prog, DISCARD);
+}
+
 /* Helper to print the range components */
 static void codegen_print_range(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
     codegen_builtin_arg(prog, node, sym, 0);
 
-    codegen_print_str(prog, "range(");
-
-    prog_add_op(prog, DUP);
-    prog_add_num(prog, 1);
-    prog_add_op(prog, SWAP);
-    prog_add_op(prog, INDEX1); // -> Start
-
-    prog_add_num(prog, 1);
     val_t *func_name = v_str_new_cstr("print");
     int const_p = prog_new_constant(prog, func_name);
-    prog_add_num(prog, const_p);
-    prog_add_op(prog, CONSTANT);
-    prog_add_op(prog, CALL);
-    prog_add_op(prog, DISCARD);
 
+    codegen_print_str(prog, "range(");
 
+    codegen_print_range_field(prog, 1, const_p); // Start
     codegen_print_str(prog, ", ");
-
-    prog_add_op(prog, DUP);
-    prog_add_num(prog, 2);
-    prog_add_op(prog, SWAP);
-    prog_add_op(prog, INDEX1); // -> Stop
-
-    prog_add_num(prog, 1);
-    // Reuse "print" constant
-    prog_add_num(prog, const_p);
-    prog_add_op(prog, CONSTANT);
-    prog_add_op(prog, CALL);
-    prog_add_op(prog, DISCARD);
-
+    codegen_print_range_field(prog, 2, const_p); // Stop
     codegen_print_str(prog, ", ");
-
-    prog_add_op(prog, DUP);
-    prog_add_num(prog, 3);
-    prog_add_op(prog, SWAP);
-    prog_add_op(prog, INDEX1); // -> Step
-
-    prog_add_num(prog, 1);
-    // Reuse "print" constant
-    prog_add_num(prog, const_p);
-    prog_add_op(prog, CONSTANT);
-    prog_add_op(prog, CALL);
-    prog_add_op(prog, DISCARD);
+    codegen_print_range_field(prog, 3, const_p); // Step
 
     codegen_print_str(prog, ")");
     prog_add_op(prog, DISCARD);
 }
 
+/* Helper for string to numeric casts with undef check */
+static void codegen_cast_str_is_undef(prog_t *prog, ast_node *node, func_sym *sym, int arg_count, int target_type) {
+    codegen_builtin_push_args(prog, node, sym, arg_count);
+    prog_add_num(prog, target_type);
+    prog_add_op(prog, CAST);
+
+    // Check if result is undef
+    prog_add_op(prog, DUP);
+    prog_add_op(prog, TYPEOF);
+    prog_add_num(prog, T_UNDEF);
+    prog_add_op(prog, EQUAL);
+}
+
+
 /* --- Builtins --- */
-
-/* fn print(range: |r|) -> none */
-void builtins_print_range(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_print_range(prog, node, sym, arg_count);
-}
-
-/* fn println(range: |r|) -> none */
-void builtins_println_range(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_print_range(prog, node, sym, arg_count);
-    // Print newline
-    codegen_print_str(prog, "\n");
-}
 
 /* fn print(any: |printable|) -> none */
 void builtins_print(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
+    ast_node *arg = node->data.call.args;
+    if (arg) {
+        yafl_t *t = type_check_expr(arg);
+        if (t && t->base_t == TYPE_RANGE) {
+            codegen_print_range(prog, node, sym, arg_count);
+            type_free(t);
+            return;
+        }
+        type_free(t);
+    }
+
     // Standard print
     codegen_builtin_push_args(prog, node, sym, arg_count);
     prog_add_num(prog, arg_count);
@@ -150,6 +142,19 @@ void builtins_print(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) 
 
 /* fn println(any: |printable|) -> none */
 void builtins_println(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
+    ast_node *arg = node->data.call.args;
+    if (arg) {
+        yafl_t *t = type_check_expr(arg);
+        if (t && t->base_t == TYPE_RANGE) {
+            codegen_print_range(prog, node, sym, arg_count);
+            // Print newline
+            codegen_print_str(prog, "\n");
+            type_free(t);
+            return;
+        }
+        type_free(t);
+    }
+
     codegen_builtin_push_args(prog, node, sym, arg_count);
     prog_add_num(prog, arg_count);
     val_t *func_name = v_str_new_cstr("println");
@@ -160,7 +165,7 @@ void builtins_println(prog_t *prog, ast_node *node, func_sym *sym, int arg_count
     prog_add_op(prog, DISCARD);
 }
 
-/* fn input_int(any: |printable str|) -> int */
+/* fn input_int(any: |printable|) -> int */
 void builtins_input_int(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
     builtins_print(prog, node, sym, arg_count);
 
@@ -172,7 +177,7 @@ void builtins_input_int(prog_t *prog, ast_node *node, func_sym *sym, int arg_cou
     prog_add_op(prog, CALL);
 }
 
-/* fn input_str(any: |printable str|) -> str */
+/* fn input_str(any: |printable|) -> str */
 void builtins_input_str(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
     builtins_print(prog, node, sym, arg_count);
 
@@ -218,13 +223,8 @@ void builtins_rng_max(prog_t *prog, ast_node *node, func_sym *sym, int arg_count
 }
 
 /* fn len(arr'any: |arr|) -> int */
-void builtins_len_arr(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_builtin_push_args(prog, node, sym, arg_count);
-    prog_add_op(prog, LEN);
-}
-
 /* fn len(str: |str|) -> int */
-void builtins_len_str(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
+void builtins_len(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
     codegen_builtin_push_args(prog, node, sym, arg_count);
     prog_add_op(prog, LEN);
 }
@@ -316,15 +316,7 @@ void builtins_to_bool_from_float(prog_t *prog, ast_node *node, func_sym *sym, in
 }
 
 void builtins_to_int_from_str(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_builtin_push_args(prog, node, sym, arg_count);
-    prog_add_num(prog, T_NUM);
-    prog_add_op(prog, CAST);
-
-    // Check if result is undef
-    prog_add_op(prog, DUP);
-    prog_add_op(prog, TYPEOF);
-    prog_add_num(prog, T_UNDEF);
-    prog_add_op(prog, EQUAL);
+    codegen_cast_str_is_undef(prog, node, sym, arg_count, T_NUM);
 
     int jmp_valid = prog_add_num(prog, -1);
     prog_add_op(prog, JUMPF);
@@ -339,15 +331,7 @@ void builtins_to_int_from_str(prog_t *prog, ast_node *node, func_sym *sym, int a
 }
 
 void builtins_to_float_from_str(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    codegen_builtin_push_args(prog, node, sym, arg_count);
-    prog_add_num(prog, T_REAL);
-    prog_add_op(prog, CAST);
-
-    // Check if result is undef
-    prog_add_op(prog, DUP);
-    prog_add_op(prog, TYPEOF);
-    prog_add_num(prog, T_UNDEF);
-    prog_add_op(prog, EQUAL);
+    codegen_cast_str_is_undef(prog, node, sym, arg_count, T_REAL);
 
     int jmp_ok = prog_add_num(prog, -1);
     prog_add_op(prog, JUMPF);
@@ -393,11 +377,7 @@ void builtins_to_str_from_bool(prog_t *prog, ast_node *node, func_sym *sym, int 
 
 /* fn range(int: |start|, int: |stop|, int: |step| <- 1) -> arr'int */
 void builtins_range(prog_t *prog, ast_node *node, func_sym *sym, int arg_count) {
-    // Order: Step, Stop, Start
-    codegen_builtin_arg(prog, node, sym, 2); // Step
-    codegen_builtin_arg(prog, node, sym, 1); // Stop
-    codegen_builtin_arg(prog, node, sym, 0); // Start
-
+    codegen_builtin_push_args(prog, node, sym, arg_count);
     prog_add_op(prog, MKRANGE);
 }
 
@@ -457,10 +437,6 @@ void builtins_register(symtab *s) {
     symtab_add_builtin(s, "print", none_t, 1, print_args, NULL, builtins_print);
     symtab_add_builtin(s, "println", none_t, 1, print_args, NULL, builtins_println);
 
-    yafl_t *range_arg[] = {range_t};
-    symtab_add_builtin(s, "print", none_t, 1, range_arg, NULL, builtins_print_range);
-    symtab_add_builtin(s, "println", none_t, 1, range_arg, NULL, builtins_println_range);
-
     // read(path) -> arr'str
     yafl_t *str_t = type_new_simple(TYPE_STR);
     yafl_t *read_args[] = {str_t};
@@ -491,8 +467,8 @@ void builtins_register(symtab *s) {
     yafl_t *arr_any_t = type_new_composite(type_new_simple(TYPE_GENERIC));
     yafl_t *len_arr_args[] = {arr_any_t};
     yafl_t *len_str_args[] = {str_t};
-    symtab_add_builtin(s, "len", int_t, 1, len_arr_args, NULL, builtins_len_arr);
-    symtab_add_builtin(s, "len", int_t, 1, len_str_args, NULL, builtins_len_str);
+    symtab_add_builtin(s, "len", int_t, 1, len_arr_args, NULL, builtins_len);
+    symtab_add_builtin(s, "len", int_t, 1, len_str_args, NULL, builtins_len);
 
     // copy(...) -> arr'any
     symtab_add_builtin(s, "copy", arr_any_t, 1, len_arr_args, NULL, builtins_copy);

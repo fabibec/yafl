@@ -239,5 +239,6 @@ ast_node *ast_append(ast_node *list, ast_node *node);
 /* Utilities */
 void ast_print_dot(ast_node *node, const char *filename);
 void ast_free(ast_node *node);
+const char *node_type_str(ast_node_t type);
 
 #endif // _AST_H_
