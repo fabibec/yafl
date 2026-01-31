@@ -1,0 +1,11 @@
+{-
+    Mutate String Test
+    Tests mutation of strings.
+-}
+
+fn start() -> none {
+    str |s2| <- >>ABC<<;
+    |s2|[1] <- >>XY<<;
+    println(|s2|); ~~ AXYC
+    println(len(|s2|)); ~~ 4
+}

@@ -10,8 +10,11 @@ src/build/*
 **/*.o
 **/*.a
 vm
+prolang
+prolang.tab.h
 
-# Allow SVG and YAFLB in demo/
+# Allow DOT, SVG and YAFLB in demo/
+!demo/**/*.dot
 !demo/**/*.svg
 !demo/**/*.yaflb
 

@@ -18,7 +18,7 @@
   pdfcreator={LaTeX}
 }
 
-\title{\textbf{YAFL} \\ Yet Another f$\dots$ Language}
+\title{\textbf{YAFL} \\ Yet Another F$\dots$ Language}
 \author{Fabian Becker}
 \date{\today}
 
@@ -67,7 +67,7 @@ The \texttt{YAFL}  compiler is implemented in \texttt{C} and utilizes a pipeline
         \hline
         \textbf{Feature} & \textbf{Syntax / Operator} & \textbf{Description \& Examples} \\
         \hline\hline
-        \textbf{Identifiers} & \texttt{|variable name|} & Enclosed in pipes to separate them from keywords. This allows for \textbf{expressive names with spaces}. \newline \textbf{Examples:} \texttt{|user input|}, \texttt{|my counter|} \\
+        \textbf{Identifiers} & \texttt{|variable name|} & Enclosed in pipes to separate them from keywords. This allows for expressive names with spaces. \newline \textbf{Examples:} \texttt{|user input|}, \texttt{|my counter|} \\
         \hline
         \textbf{Functions} & \texttt{fn ... -> type} & Explicit return type arrow. \newline \textbf{Examples:} \newline 1. \texttt{fn add(int:|a|, int:|b|) -> int \{...\}} \newline 2. \texttt{fn start() -> none \{...\}} \\
         \hline
@@ -81,7 +81,7 @@ The \texttt{YAFL}  compiler is implemented in \texttt{C} and utilizes a pipeline
 \end{table}
 
 \subsection{Numeric and String Literals}
-Moreover the language supports a highly flexible number format. Beyond standard decimals, numbers can be prefixed with a base (2-16) using the hash syntax \texttt{base\#number}.
+Moreover, the language supports a highly flexible number format. Beyond standard decimals, numbers can be prefixed with a base (2-16) using the hash syntax \texttt{base\#number}.
 If no base was provided (\texttt{\#number}), the literal will be interpreted as a hexadecimal number.
 \begin{itemize}
     \item \textbf{Base-N Floats:} This base logic extends to floating point numbers. Both the integral and fractional parts are interpreted in the specified base (e.g., \texttt{16\#F.8} equals $15.5$ decimal).
@@ -100,7 +100,7 @@ The assignment operator is \texttt{<-}, emphasizing data flow. This allows the e
         \item \textbf{Repetition (\texttt{*}):} Repeating a string or array $n$ times (e.g., \texttt{>>ab<< * 3} results in \texttt{>>ababab<<}).
     \end{itemize}
     \item \textbf{Logic \& Bitwise:} The keywords \texttt{and}, \texttt{or} and \texttt{not} are used for logical and bitwise operations, replacing \texttt{\&\&}, \texttt{||} and \texttt{!}.
-    \item \textbf{Increment/Decrement:} The operators \texttt{++} and \texttt{-}\texttt{-} are postfix-only. Unlike \texttt{C}, they execute the operation and \textbf{return the updated value} immediately.
+    \item \textbf{Increment/Decrement:} The operators \texttt{++} and \texttt{-}\texttt{-} are postfix-only. Unlike \texttt{C}, they execute the operation and return the updated value \textbf{immediately}.
 \end{itemize}
 
 \section{Language Features}
@@ -111,8 +111,9 @@ Implicit casting is not permitted; conversions must be explicit (e.g., \texttt{t
 The type system supports:
 
 \begin{itemize}
-    \item \textbf{Primitives:} \texttt{int}, \texttt{float}, \texttt{bool}, and \texttt{str}. Primitives are passed by reference.
-    \item \textbf{Collections:} \texttt{arr} (typed arrays) and \texttt{range\textquotesingle int} (lazy sequences).
+    \item \textbf{Value Types:} \texttt{int}, \texttt{float}, and \texttt{bool}. These are effectively passed by value.
+    \item \textbf{Reference Types:} \texttt{str} and \texttt{arr} (typed arrays). These are passed by reference. Although \texttt{str} is a reference type, it is treated as a first-class primitive in contexts such as \texttt{match} statements and comparisons.
+    \item \textbf{Lazy Sequences:} \texttt{range\textquotesingle int}.
     \item \textbf{Special:} \texttt{none} for empty returns.
 \end{itemize}
 Composite types (e.g., \texttt{arr\textquotesingle arr\textquotesingle str}) are supported.
@@ -122,7 +123,7 @@ Uninitialized variables default to zero values (0, 0.0, \texttt{No}, or \texttt{
 \textbf{Conditionals:} Standard \texttt{if-elif-else} structures are converted to nested \texttt{if} statements.
 
 \textbf{Loops \& Iterators:} The \texttt{while} loop operates on boolean conditions.
-The \texttt{for} loop uses iterators (syntax: \texttt{for <type> |v| in iterator}).
+The \texttt{for} loop uses iterators (syntax: \texttt{for <type> |v| in <iterator>}).
 
 \begin{itemize}
     \item \textbf{Lazy Evaluation:} The \texttt{range()} function is implemented as a lazy iterator. Instead of creating a full array on the virtual machine stack, the compiler emits the \texttt{MKRANGE} opcode, creating a lightweight state object \texttt{["\_\_RANGE\_\_", current, stop, step]} on the stack.
@@ -143,7 +144,7 @@ The \texttt{match} statement can replace complex \texttt{if-else} chains. Since 
 \texttt{YAFL} supports advanced function features requiring a custom symbol table and multi-pass compilation.
 \begin{itemize}
     \item \textbf{Unified Symbol Table:} Built-in functions are pre-registered in the same custom symbol table as user-defined functions.
-    This simplifies the parser, as built-ins like \texttt{args()} (which returns user arguments excluding the program name) are treated exactly like standard calls.
+    This simplifies the parser, as built-ins like \texttt{args()} (returns commandline arguments) are treated exactly like standard calls.
     \item \textbf{Execution Strategy (CALL\_PC):} The standard \texttt{VM3} virtual machine resolves function calls by name.
     This is insufficient for \texttt{YAFL's} overloading support, where multiple functions can share the same name.
     To solve this, the custom \texttt{CALL\_PC} opcode was implemented. It dispatches calls to a specific bytecode address (Program Counter), ensuring the correct overloaded signature is targeted.
@@ -156,7 +157,7 @@ The \texttt{match} statement can replace complex \texttt{if-else} chains. Since 
         \item \textbf{Registration:} In the first pass all function signatures are registered in the symbol table.
         \item \textbf{Body Generation:} During the second pass function bodies are compiled.
         If a call references a not-yet-compiled function, the call site is added to a "fixup list."
-        \item \textbf{Patching:} Once the target function is compiled, its start address is back-patched into all pending call sites in the fixup list.
+        \item \textbf{Patching:} Once the target function is compiled, its start address is backpatched into all pending call sites in the fixup list.
     \end{enumerate}
 \end{itemize}
 
@@ -170,7 +171,7 @@ To ensure efficient bytecode execution, the compiler performs a dedicated optimi
     \begin{itemize}
         \item \textbf{Unreachable Statements:} Code following control flow interruptions (e.g., \texttt{return}, \texttt{next}, \texttt{stop}) is detected and pruned.
         \item \textbf{Branch Pruning:} \texttt{if} and \texttt{match} structures with constant conditions are simplified.
-        If a condition is known to be false at compile time, the entire branch is discarded; if true, the conditional wrapper is removed, and only the body is retained.
+        If a condition is known to be false at compile time, the entire branch is discarded. If true, the conditional wrapper is removed, and only the body is retained.
     \end{itemize}
 \end{itemize}
 
@@ -181,7 +182,7 @@ The \texttt{YAFL} ecosystem mimics a standard two-stage compilation process, dis
     \item \textbf{Compiler (\texttt{yaflc}):} Transforms source files (\texttt{.yafl}) into bytecode (\texttt{.yaflb}).
     It supports the \texttt{-v} flag to export the AST as Graphviz \texttt{.dot} and \texttt{.svg} files, allowing for visual verification of the parsing and optimization stages.
     \item \textbf{Bytecode Executor (\texttt{yafl}):} A modified version of \texttt{VM3} that executes the bytecode.
-    It accepts command-line arguments, which are accessible to the user program via the \texttt{args()} builtin function.
+    It accepts commandline arguments, which are accessible to the user program via the \texttt{args()} builtin function.
 \end{itemize}
 
 \section{Demonstration Programs}
@@ -217,7 +218,7 @@ The submitted project is structured in the following way:
   \textbf{Signature} & \textbf{Description} \\ [0.5ex]
   \hline\hline
   \endhead
-  \texttt{args() -> arr'str} & Returns the command-line arguments passed to the program. \\
+  \texttt{args() -> arr'str} & Returns the command-line arguments passed to the program, excluding the program name. \\
   \hline
   \texttt{contains(str:|haystack|, str:|needle|) -> int} & Returns the starting index of \texttt{needle} in \texttt{haystack}, or -1 if not found. \\
   \hline
@@ -273,19 +274,19 @@ Besides the already mentioned ones, these are the additionally created opcodes.
   \hline
   \textbf{OPCODE/NATIVE Identifier} & \textbf{Description} \\ [0.5ex]
   \hline\hline
-  \texttt{ARGS} & Pushes commandline argument array to stack \\
+  \texttt{ARGS} & Pushes commandline argument array to stack. \\
   \hline
-  \texttt{CONTAINS} & Returns the index of the needle (str) in the haystack (str), -1 if not found\\
+  \texttt{CONTAINS} & Returns the index of the needle (str) in the haystack (str), -1 if not found. \\
   \hline
-  \texttt{READ\_FILE} & Reads a file by returning a string array of lines (newline gets stripped) \\
+  \texttt{READ\_FILE} & Reads a file by returning a string array of lines (newline gets stripped). \\
   \hline
-  \texttt{SLEEPMS} & Sleeps for the provided number of milliseconds ($\le$10s) by using \texttt{nanosleep()}\\
+  \texttt{SLEEPMS} & Sleeps for the provided number of milliseconds ($\le$10s) by using \texttt{nanosleep()}. \\
   \hline
-  \texttt{SLICE} & Slices a string, negative indexing (start from end) allowed, returns a deep copy \\
+  \texttt{SLICE} & Slices a string, negative indexing (start from end) allowed, returns a deep copy. \\
   \hline
-  \texttt{SWAP} & Swaps the two topmost elements on the stack \\
+  \texttt{SWAP} & Swaps the two topmost elements on the stack. \\
   \hline
-  \texttt{WRITE\_FILE} & Writes or appends string to a file (without newline), returns success a boolean \\ [1ex]
+  \texttt{WRITE\_FILE} & Writes or appends string to a file (without newline), returns success as boolean. \\ [1ex]
   \hline
 \end{tabularx}
 \end{center}

@@ -1,9 +1,9 @@
 #include "prog.h"
-#include <string.h>
-#include <stdlib.h>
-#include <time.h>
 #include <errno.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
+#include <time.h>
 
 /* Simple swap */
 OPCODE(SWAP) {
@@ -14,7 +14,7 @@ OPCODE(SWAP) {
   PUSH(v_2);
 }
 
-/* CALL that uses a pc instead of a function name -> just a blatant copy paste of CALL */
+/* CALL that uses a pc instead of a function name */
 OPCODE(CALL_PC) {
     MINARGS(2); // nrargs, func_pc
 
@@ -61,7 +61,7 @@ OPCODE(SLEEPMS) {
 
     /* Resume sleep if interrupted */
     while (nanosleep(&req, &rem) == -1) {
-        req = rem;
+      req = rem;
     }
 }
 

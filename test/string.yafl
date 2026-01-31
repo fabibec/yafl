@@ -1,0 +1,15 @@
+{-
+    Match Test
+    Tests if strings are references.
+-}
+
+fn modify(str: |s|) -> none {
+    |s|[0] <- >>X<<;
+}
+
+fn start() -> int {
+    str |text| <- >>Hello<<;
+    modify(|text|);
+    println(|text|);
+    ret 0;
+}

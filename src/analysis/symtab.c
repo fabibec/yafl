@@ -187,8 +187,8 @@ var_sym *symtab_lookup_var(symtab *table, const char *name) {
     return NULL;
 }
 
-func_sym *symtab_add_func(symtab *table, const char *name, yafl_t *ret_type,
-        int num_params, yafl_t **param_types, struct ast_node **default_values, int pc) {
+static func_sym *symtab_add_func_base(symtab *table, const char *name, yafl_t *ret_type,
+        int num_params, yafl_t **param_types, struct ast_node **default_values, int is_builtin) {
 
     func_sym *existing = hashmap_get(table->funcs, name);
 
@@ -196,7 +196,8 @@ func_sym *symtab_add_func(symtab *table, const char *name, yafl_t *ret_type,
     for (func_sym *overload = existing; overload; overload = overload->next_overload) {
         if (is_signature_ambiguous(num_params, param_types, default_values,
                                    overload->num_params, overload->param_types, overload->default_values)) {
-            log_error(NO_LINE, "Ambiguous function overload for '%s'. Signature conflicts with existing definition.", name);
+            const char *type = is_builtin ? "builtin" : "function";
+            log_error(NO_LINE, "Ambiguous %s overload for '%s'. Signature conflicts with existing definition.", type, name);
             return NULL;
         }
     }
@@ -205,8 +206,7 @@ func_sym *symtab_add_func(symtab *table, const char *name, yafl_t *ret_type,
     sym->name = strdup(name);
     sym->ret_type = type_clone(ret_type);
     sym->num_params = num_params;
-    sym->is_builtin = 0;
-    sym->impl.pc = pc;
+    sym->is_builtin = is_builtin;
     sym->next_overload = NULL;
     sym->fixups = NULL;
 
@@ -224,7 +224,7 @@ func_sym *symtab_add_func(symtab *table, const char *name, yafl_t *ret_type,
     if (default_values && num_params > 0) {
         sym->default_values = malloc(num_params * sizeof(ast_node*));
         for (int i = 0; i < num_params; i++) {
-            // Store pointer, do not clone AST node
+            // Store pointer, do not clone AST node (we own)
             sym->default_values[i] = default_values[i];
         }
     } else {
@@ -249,64 +249,21 @@ func_sym *symtab_add_func(symtab *table, const char *name, yafl_t *ret_type,
     return sym;
 }
 
+func_sym *symtab_add_func(symtab *table, const char *name, yafl_t *ret_type,
+        int num_params, yafl_t **param_types, struct ast_node **default_values, int pc) {
+    func_sym *sym = symtab_add_func_base(table, name, ret_type, num_params, param_types, default_values, 0);
+    if (sym) {
+        sym->impl.pc = pc;
+    }
+    return sym;
+}
+
 func_sym *symtab_add_builtin(symtab *table, const char *name, yafl_t* ret_type,
                                int num_params, yafl_t **param_types, struct ast_node **default_values, codegen_fn codegen) {
-    func_sym *existing = hashmap_get(table->funcs, name);
-
-   // Check for ambiguous signatures
-    for (func_sym *overload = existing; overload; overload = overload->next_overload) {
-        if (is_signature_ambiguous(num_params, param_types, default_values,
-                                   overload->num_params, overload->param_types, overload->default_values)) {
-            log_error(NO_LINE, "Ambiguous builtin overload for '%s'. Signature conflicts with existing definition.", name);
-            return NULL;
-        }
+    func_sym *sym = symtab_add_func_base(table, name, ret_type, num_params, param_types, default_values, 1);
+    if (sym) {
+        sym->impl.codegen = codegen;
     }
-
-    func_sym *sym = malloc(sizeof(func_sym));
-    sym->name = strdup(name);
-    sym->ret_type = type_clone(ret_type);
-    sym->num_params = num_params;
-    sym->is_builtin = 1;
-    sym->impl.codegen = codegen;
-    sym->next_overload = NULL;
-    sym->fixups = NULL;
-
-    // Insert param types
-    if (param_types && num_params > 0) {
-        sym->param_types = malloc(num_params * sizeof(yafl_t *));
-        for(int i=0; i<num_params; i++) {
-            sym->param_types[i] = type_clone(param_types[i]);
-        }
-    } else {
-        sym->param_types = NULL;
-    }
-
-    // Insert default values
-    if (default_values && num_params > 0) {
-        sym->default_values = malloc(num_params * sizeof(ast_node*));
-        for (int i = 0; i < num_params; i++) {
-            // Store pointer
-            sym->default_values[i] = default_values[i];
-        }
-    } else {
-        sym->default_values = NULL;
-    }
-
-    if (!existing) {
-        // First function with this name
-        if (hashmap_put(table->funcs, name, sym)) {
-            func_sym_free(sym);
-            return NULL;
-        }
-    } else {
-        // Add to overload chain
-        func_sym *last = existing;
-        while (last->next_overload) {
-            last = last->next_overload;
-        }
-        last->next_overload = sym;
-    }
-
     return sym;
 }
 
@@ -330,7 +287,7 @@ static int type_score(yafl_t *target, yafl_t *actual) {
 }
 
 func_sym *symtab_lookup_func(symtab *table, const char *name,
-                                        yafl_t **arg_types, int num_args) {
+                             yafl_t **arg_types, int num_args) {
     func_sym *func = hashmap_get(table->funcs, name);
 
     if (!func) {

@@ -177,13 +177,6 @@ ast_node *ast_new_var(char *name) {
     return node;
 }
 
-ast_node *ast_new_cast(yafl_t *type, ast_node *expr) {
-    ast_node *node = ast_new_node(NODE_CAST);
-    node->data.cast.type = type;
-    node->data.cast.expr = expr;
-    return node;
-}
-
 ast_node *ast_new_default(yafl_t *type) {
     ast_node *node = ast_new_node(NODE_DEFAULT_VAL);
     node->data.default_val.type = type;
@@ -246,7 +239,6 @@ const char *node_type_str(ast_node_t type) {
         case NODE_BOOL: return "BOOL";
         case NODE_VAR: return "VAR";
         case NODE_CALL: return "CALL";
-        case NODE_CAST: return "CAST";
         case NODE_MATCH: return "MATCH";
         case NODE_CASE: return "CASE";
         default: return "UNKNOWN";
@@ -446,10 +438,6 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
         case NODE_VAR:
             snprintf(label, sizeof(label), "VAR\\n%s", node->data.var.name);
             break;
-        case NODE_CAST:
-            type_to_str(node->data.cast.type, type_buf, sizeof(type_buf));
-            snprintf(label, sizeof(label), "CAST\\n%s", type_buf);
-            break;
         case NODE_DEFAULT_VAL:
             type_to_str(node->data.default_val.type, type_buf, sizeof(type_buf));
             snprintf(label, sizeof(label), "OTHERWISE\\n%s", type_buf);
@@ -492,13 +480,6 @@ static void ast_print_dot_node(FILE *fp, ast_node *node, int parent_id) {
         case NODE_CALL:
             if(node->data.call.args) {
                 ast_print_dot_node(fp, node->data.call.args, my_id);
-            }
-            break;
-
-
-        case NODE_CAST:
-            if(node->data.cast.expr) {
-                ast_print_dot_node(fp, node->data.cast.expr, my_id);
             }
             break;
 
@@ -683,19 +664,14 @@ void ast_free(ast_node *node) {
         case NODE_RETURN:
             ast_free(node->data.ret.value);
             break;
-        case NODE_CALL:
-            free(node->data.call.name);
-            ast_free(node->data.call.args);
-            break;
-
-        case NODE_CAST:
-            type_free(node->data.cast.type);
-            ast_free(node->data.cast.expr);
-            break;
-        case NODE_DEFAULT_VAL:
-            type_free(node->data.default_val.type);
-            break;
-
+                case NODE_CALL:
+                    free(node->data.call.name);
+                    ast_free(node->data.call.args);
+                    break;
+        
+                case NODE_DEFAULT_VAL:
+                    type_free(node->data.default_val.type);
+                    break;
 
         case NODE_DECL:
             free(node->data.decl.name);

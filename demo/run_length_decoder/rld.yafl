@@ -4,9 +4,9 @@
 
 ~~ Test cases
 fn start() -> none {
-    arr'str |tests| <- [>>5[ab]<<, >>3[hello2[world]]<<, >>2[a3[b2[cd]]]<<, >>2[3[A2[B1[C]]]D]<<];
+    arr'str |tests| <- [>>5[ab]<<, >>3[hello2[world]]<<, >>2[a3[b2[cd]]]<<, >>2[3[a2[b1[c]]]d]<<];
     arr'str |expected| <- [>>ababababab<<, >>helloworldworldhelloworldworldhelloworldworld<<,
-        >>abcdcdbcdcdbcdcdabcdcdbcdcdbcdcd<<, >>ABCBCABCBCABCBCDABCBCABCBCABCBCD<<];
+        >>abcdcdbcdcdbcdcdabcdcdbcdcdbcdcd<<, >>abcbcabcbcabcbcdabcbcabcbcabcbcd<<];
 
     println(>>Yafl Demo 2: Run Length Decoder<<);
 
@@ -14,8 +14,7 @@ fn start() -> none {
     int |idx|;
     for str |t| in |tests| {
         |res| <- decode(|t|);
-        print(>>Test << + |t| + >> -> <<);
-        print(|res|);
+        print(>>Test << + |t| + >> -> << + |res|);
         if |res| = |expected|[|idx|] { println(>> [Passed]<<); } else {
             println(>> [Failed]<<);
             println(>>Expected: << + |expected|[|idx|]);
@@ -60,7 +59,6 @@ fn decode_rec(str: |s|) -> str {
 
             ~~ Repeat substring |num| times
             |result| <-+ |substr| * |num|;
-
         } elif |chr| = >>]<< {
             |idx|++;
             ret |result|;

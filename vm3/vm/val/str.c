@@ -81,13 +81,33 @@ str_t *str_index (str_t *str, int i) {
 }
 
 str_t *str_index_assign(str_t *str, int index, str_t *str2) {
-  vmerror(E_WARN, NULL, "String index assignment out of bounds: len: %d, index: %d", str->len, index);
-  while (index <= str->len)
-    str_add_buf(str, " ", 1);
-  str->buf = realloc(str->buf, str->len + str2->len);
-  memmove(str->buf+index+1, str->buf + index + str2->len-1, str->len - index);
-  memcpy(str->buf+index, str2->buf, str2->len);
+  // Only warn and pad string when needed
+  if (index > str->len) {
+    vmerror(E_WARN, NULL, "String index assignment out of bounds: len: %d, index: %d", str->len, index);
+    while (str->len < index) str_add_buf(str, " ", 1);
+  }
 
+  // For out of bound -> replace = 0 -> append
+  int replace = (index < str->len) ? 1 : 0;
+  int new_len = str->len + str2->len - replace;
+
+  // Exponential growth realloc
+  if (new_len >= str->cap) {
+    while (new_len >= str->cap) str->cap *= 2;
+    str->buf = realloc(str->buf, str->cap);
+  }
+  // str->buf = realloc(str->buf, str->len + str2->len + 1);
+
+  // Make room if needed
+  memmove(
+    str->buf + index + str2->len, // dest = src position + str2
+    str->buf + index + replace, // src = part after index (skip replaced character)
+    str->len - index - replace + 1 // size tail = everything after index + \0
+  );
+  // Squeezes new string in
+  memcpy(str->buf + index, str2->buf, str2->len);
+
+  str->len = new_len;
   return str;
 }
 

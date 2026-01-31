@@ -15,7 +15,7 @@ typedef struct {
 
 struct func_sym;
 
-typedef void (*codegen_fn)(prog_t *p, ast_node *node, struct func_sym *sym, int arg_count);
+typedef void (*codegen_fn)(ast_node *node, struct func_sym *sym, int arg_count);
 
 typedef struct func_sym {
     char *name;
@@ -39,7 +39,7 @@ typedef struct fixup_node {
     struct fixup_node *next;
 } fixup_node;
 
-/* Scope - linked list of hash maps */
+/* Scope */
 typedef struct scope {
     hashmap *vars;
     struct scope *parent;
@@ -52,7 +52,7 @@ typedef struct scope {
 /* Symbol table state */
 typedef struct symtab {
     // Current scope
-    scope *current;
+    scope *current; // stack - current scope is first
     hashmap* funcs;
     int total_scopes;
 } symtab;
@@ -67,16 +67,16 @@ var_sym *symtab_add_var(symtab *table, const char *name, yafl_t *type);
 var_sym *symtab_lookup_var(symtab *table, const char *name);
 
 func_sym *symtab_add_func(symtab *table, const char *name, yafl_t *ret_type,
-                           int num_params, yafl_t **param_types, struct ast_node **default_values, int pc);
+                          int num_params, yafl_t **param_types, struct ast_node **default_values, int pc);
 
 void symtab_add_fixup(func_sym *sym, int pc_location);
 
 func_sym *symtab_add_builtin(symtab *table, const char *name, yafl_t* ret_type,
-                               int num_params, yafl_t **param_types, struct ast_node **default_values,
-                               codegen_fn codegen);
+                             int num_params, yafl_t **param_types, struct ast_node **default_values,
+                             codegen_fn codegen);
 
 func_sym *symtab_lookup_func(symtab *table, const char *name,
-                                        yafl_t **arg_types, int num_args);
+                             yafl_t **arg_types, int num_args);
 
 void symtab_dump(symtab *table);
 

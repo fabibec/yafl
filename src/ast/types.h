@@ -36,4 +36,4 @@ int type_is_identical(yafl_t *t1, yafl_t *t2);
 void type_to_str(const yafl_t *t, char *buf, size_t len);
 yafl_t* type_clone(yafl_t *t);
 
-#endif
+#endif // _TYPES_H_

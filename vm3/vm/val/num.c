@@ -48,14 +48,14 @@ static int parse_yafl_int(const char *s, int *out) {
 
     const char *hash = strchr(s, '#');
     if (hash) {
-        if (hash == s) {
-            base = 16;
-            p = hash + 1;
-        } else {
-            base = parse_base(s);
-            if (!base) return 0; // Error
-            p = hash + 1;
-        }
+      if (hash == s) {
+        base = 16;
+        p = hash + 1;
+      } else {
+        base = parse_base(s);
+        if (!base) return 0; // Error
+        p = hash + 1;
+      }
     }
 
     return parse_based_int(base, p, out);

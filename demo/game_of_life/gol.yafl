@@ -1,12 +1,8 @@
-{-
- This is Game of Life in yafl.
--}
-
 ~~ Globals
 int |WIDTH| <- 30;
 int |HEIGHT| <- 15;
-int |ALIVE| <- 1;
-int |DEAD| <- 0;
+bool |ALIVE| <- Yes;
+bool |DEAD| <- No;
 
 ~~ Game loop
 fn start() -> none {
@@ -14,11 +10,17 @@ fn start() -> none {
     print(>>^x1B[?25l<<);
 
     println(>>Yafl Demo 1: Conway's Game of Life<<);
-    arr'arr'int |grid| <- init_field();
+    arr'arr'bool |grid| <- init_field();
+    arr'arr'bool |buffer| <- init_dead_arr();
 
     while Yes {
         print_grid(|grid|);
-        |grid| <- update(|grid|);
+        update(|grid|, |buffer|);
+
+        ~~ Swap
+        arr'arr'bool |temp| <- |grid|;
+        |grid| <- |buffer|;
+        |buffer| <- |temp|;
     }
 }
 
@@ -48,7 +50,7 @@ fn parse_int_after(str: |line|, str: |substring|) -> int{
 }
 
 
-fn init_field() -> arr'arr'int {
+fn init_field() -> arr'arr'bool {
     arr'str |input args| <- args();
     arr'str |file content|;
 
@@ -82,7 +84,7 @@ fn init_field() -> arr'arr'int {
         int |offset x| <- (|WIDTH| - |pattern width|) / 2;
         int |offset y| <- (|HEIGHT| - |pattern height|) / 2;
 
-        arr'arr'int |grid| <- init_dead_arr();
+        arr'arr'bool |grid| <- init_dead_arr();
         println(>>Grid size: << + to_str(|WIDTH|) + >> x << + to_str(|HEIGHT|));
         |line idx|++;
 
@@ -132,15 +134,15 @@ fn init_field() -> arr'arr'int {
     } else {
         println(>>x = << + to_str(|WIDTH|) + >>, y = << + to_str(|HEIGHT|));
         println(>>No pattern file provided, creating random field!<<);
-        arr'arr'int |grid| <- init_dead_arr();
+        arr'arr'bool |grid| <- init_dead_arr();
         init_random(|grid|);
         ret |grid|;
     }
 }
 
 ~~ Init dead 2D-array
-fn init_dead_arr() -> arr'arr'int {
-    arr'arr'int |grid|[|HEIGHT|];
+fn init_dead_arr() -> arr'arr'bool {
+    arr'arr'bool |grid|[|HEIGHT|];
     for int |i| in range(0, |HEIGHT|) {
         |grid|[|i|] <- [|DEAD|] * |WIDTH|;
     }
@@ -148,7 +150,7 @@ fn init_dead_arr() -> arr'arr'int {
 }
 
 ~~ Init random 2D-array
-fn init_random(arr'arr'int: |grid|) -> none {
+fn init_random(arr'arr'bool: |grid|) -> none {
     for int |y| in range(0, |HEIGHT|) {
         for int |x| in range(0, |WIDTH|) {
             if rng(4) = 0 {
@@ -159,7 +161,7 @@ fn init_random(arr'arr'int: |grid|) -> none {
 }
 
 ~~ Check amount of alive surrounding neighbors
-fn count_neighbors(arr'arr'int: |grid|, int: |y|, int: |x|) -> int {
+fn count_neighbors(arr'arr'bool: |grid|, int: |y|, int: |x|) -> int {
     int |count|;
 
     for int |dy| in range(-1, 2) {
@@ -182,16 +184,14 @@ fn count_neighbors(arr'arr'int: |grid|, int: |y|, int: |x|) -> int {
 }
 
 ~~ Gol update
-fn update(arr'arr'int: |grid|) -> arr'arr'int {
-    arr'arr'int |next|[|HEIGHT|];
-    for int |i| in range(0, |HEIGHT|) {
-        |next|[|i|] <- [|DEAD|] * |WIDTH|;
-    }
-
+fn update(arr'arr'bool: |grid|, arr'arr'bool: |next|) -> none {
     for int |y| in range(0, |HEIGHT|) {
         for int |x| in range(0, |WIDTH|) {
+            ~~ Reset
+            |next|[|y|][|x|] <- |DEAD|;
+
             int |neighbors| <- count_neighbors(|grid|, |y|, |x|);
-            int |cell| <- |grid|[|y|][|x|];
+            bool |cell| <- |grid|[|y|][|x|];
 
             if |cell| = |ALIVE| and (|neighbors| = 2 or |neighbors| = 3) {
                 |next|[|y|][|x|] <- |ALIVE|;
@@ -200,16 +200,14 @@ fn update(arr'arr'int: |grid|) -> arr'arr'int {
             }
         }
     }
-
-    ret |next|;
 }
 
-fn print_grid(arr'arr'int: |grid|) -> none {
+fn print_grid(arr'arr'bool: |grid|) -> none {
     print(>>+<< + (>>-<< * |WIDTH|) + >>+^n<<);
     for int |y| in range(0, |HEIGHT|) {
         print(>>|<<);
         for int |x| in range(0, |WIDTH|) {
-            if |grid|[|y|][|x|] ~= 0 {
+            if |grid|[|y|][|x|] = |ALIVE| {
                 print(>>#<<);
             } else {
                 print(>> <<);

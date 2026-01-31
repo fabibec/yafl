@@ -45,8 +45,6 @@ typedef enum {
     NODE_BOOL,
     NODE_VAR,
 
-    NODE_CAST,
-
     NODE_DEFAULT_VAL
 } ast_node_t;
 
@@ -183,10 +181,6 @@ typedef struct ast_node {
         } var;
         struct {
             yafl_t *type;
-            struct ast_node *expr;
-        } cast;
-        struct {
-            yafl_t *type;
         } default_val;
     } data;
 
@@ -228,7 +222,6 @@ ast_node *ast_new_float(double value);
 ast_node *ast_new_str(char* value);
 ast_node *ast_new_bool(bool value);
 ast_node *ast_new_var(char* name);
-ast_node *ast_new_cast(yafl_t *type, ast_node *expr);
 ast_node *ast_new_default(yafl_t *type);
 
 /* Helper to link lists */

@@ -1,0 +1,11 @@
+{-
+    Nested function Test
+    Tests if nested functions fail.
+-}
+
+fn main() -> int {
+    fn nested() -> int {
+        ret 0;
+    }
+    ret nested();
+}

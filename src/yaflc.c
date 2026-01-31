@@ -20,6 +20,12 @@ static void cleanup(){
     if (yyin && yyin != stdin) fclose(yyin);
     strb_free();
     yylex_destroy();
+    /*
+        Ensure cursor is visible,
+        as debug mode might print out ANSI escapes in the program dump
+    */
+    printf("\033[?25h");
+    fflush(stdout);
 }
 
 static void usage(){

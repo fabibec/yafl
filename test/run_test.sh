@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Simple script to check all test quickly
+# Simple script to check all tests quickly
 
 # Configuration
 COMPILER="../src/yaflc"
@@ -13,13 +13,14 @@ UNEXPECTED_PASS_COUNT=0
 SHOULD_PASS=(
     arith array basic builtins cast copy defaults
     elif escapes exotic for_range input loop_control
-    loops match optim polymorphic_arith range_print
-    scope slice
+    loops match mutate_str optim polymorphic_arith
+    range_print scope slice string
 )
 
 # Tests that are expected to fail compilation
 SHOULD_FAIL=(
-    bad_default syntax_error empty type_checks
+    bad_default empty nested_func syntax_error
+    type_checks unary
 )
 
 echo "--- Running YAFL Test Suite ---"

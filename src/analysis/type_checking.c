@@ -25,7 +25,7 @@ void type_check_func_signature(ast_node *node) {
     while (param) {
         if (param->data.param.default_value) {
             seen_default = true;
-            yafl_t *def_t = type_check_expr(param->data.param.default_value);
+            yafl_t *def_t = type_check_get_expr_type(param->data.param.default_value);
             type_check_compatibility(param->data.param.type, def_t, param->line, "default argument");
             type_free(def_t);
         } else if (seen_default) {
@@ -36,7 +36,7 @@ void type_check_func_signature(ast_node *node) {
     }
 }
 
-yafl_t* type_check_expr(ast_node *node) {
+yafl_t* type_check_get_expr_type(ast_node *node) {
     if (!node) return NULL;
 
     switch (node->type) {
@@ -57,8 +57,8 @@ yafl_t* type_check_expr(ast_node *node) {
         }
 
         case NODE_BINARY: {
-            yafl_t *left = type_check_expr(node->data.binary.left);
-            yafl_t *right = type_check_expr(node->data.binary.right);
+            yafl_t *left = type_check_get_expr_type(node->data.binary.left);
+            yafl_t *right = type_check_get_expr_type(node->data.binary.right);
             yafl_t *res = NULL;
 
             if (!left || !right) {
@@ -113,12 +113,12 @@ yafl_t* type_check_expr(ast_node *node) {
                 case OP_GE:
                 case OP_EQ:
                 case OP_NE:
-                    if (left->base_t == TYPE_SINT ||
-                         left->base_t == TYPE_FLOAT || left->base_t == TYPE_STR || left->base_t == TYPE_BOOL) {
-                         res = type_new_simple(TYPE_BOOL);
-                     } else {
-                         log_error(node->line, "Invalid operand type for comparison");
-                     }
+                    if (left->base_t == TYPE_SINT || left->base_t == TYPE_FLOAT ||
+                        left->base_t == TYPE_STR || left->base_t == TYPE_BOOL) {
+                        res = type_new_simple(TYPE_BOOL);
+                    } else {
+                        log_error(node->line, "Invalid operand type for comparison");
+                    }
                     break;
                 case OP_AND:
                 case OP_OR:
@@ -136,6 +136,33 @@ yafl_t* type_check_expr(ast_node *node) {
             return res;
         }
 
+        case NODE_UNARY: {
+            yafl_t *t = type_check_get_expr_type(node->data.unary.operand);
+            if (!t) return NULL;
+
+            switch(node->data.unary.op) {
+                case OP_NOT:
+                    if (t->base_t != TYPE_BOOL) {
+                        log_error(node->line, "NOT operator requires boolean operand");
+                    }
+                    type_free(t);
+                    return type_new_simple(TYPE_BOOL);
+                case OP_INC:
+                case OP_DEC:
+                    if (t->base_t != TYPE_SINT) {
+                        log_error(node->line, "Increment/Decrement requires integer operand");
+                    }
+                    return t;
+                case OP_NEG:
+                    if (t->base_t != TYPE_SINT && t->base_t != TYPE_FLOAT) {
+                        log_error(node->line, "Unary negation requires numeric operand");
+                    }
+                    return t;
+                default:
+                    log_error(node->line, "Unknown unary operator");
+            }
+        }
+
         case NODE_CALL: {
             // Need to evaluate arg types to find correct overload
             int arg_count = 0;
@@ -147,14 +174,14 @@ yafl_t* type_check_expr(ast_node *node) {
                 arg_types = malloc(arg_count * sizeof(yafl_t*));
                 int i = 0;
                 for (ast_node *p = args; p; p = p->next) {
-                    arg_types[i++] = type_check_expr(p);
+                    arg_types[i++] = type_check_get_expr_type(p);
                 }
             }
 
             func_sym *fn = symtab_lookup_func(prog_symtab, node->data.call.name, arg_types, arg_count);
 
             if (!fn) {
-                char arg_desc[512] = "";
+                char arg_desc[1024] = "";
                 if (arg_count > 0 && arg_types) {
                     char type_buf[128];
                     for(int k=0; k<arg_count; k++) {
@@ -189,20 +216,9 @@ yafl_t* type_check_expr(ast_node *node) {
             return ret_t;
         }
 
-        case NODE_UNARY:
-            if (node->data.unary.op == OP_NOT) {
-                yafl_t *t = type_check_expr(node->data.unary.operand);
-                if (t && t->base_t != TYPE_BOOL) {
-                    log_error(node->line, "NOT operator requires boolean operand");
-                }
-                type_free(t);
-                return type_new_simple(TYPE_BOOL);
-            }
-            return type_check_expr(node->data.unary.operand);
-
         case NODE_ARR_IDX: {
-            yafl_t *base_type = type_check_expr(node->data.arr_idx.base);
-            yafl_t *idx_type = type_check_expr(node->data.arr_idx.idx);
+            yafl_t *base_type = type_check_get_expr_type(node->data.arr_idx.base);
+            yafl_t *idx_type = type_check_get_expr_type(node->data.arr_idx.idx);
 
             if (idx_type && idx_type->base_t != TYPE_SINT) {
                 log_error(node->line, "Array index must be integer");
@@ -225,12 +241,12 @@ yafl_t* type_check_expr(ast_node *node) {
         case NODE_ARR_LIT: {
             ast_node *el = node->data.arr_lit.elements;
 
-            yafl_t *first_type = type_check_expr(el);
+            yafl_t *first_type = type_check_get_expr_type(el);
             if (!first_type) return NULL;
 
             el = el->next;
             while (el) {
-                yafl_t *next_type = type_check_expr(el);
+                yafl_t *next_type = type_check_get_expr_type(el);
                 if (!type_equals(first_type, next_type)) {
                     log_error(node->line, "Array literal elements must have same type");
                 }
@@ -242,14 +258,13 @@ yafl_t* type_check_expr(ast_node *node) {
 
         case NODE_DEFAULT_VAL:
             return type_clone(node->data.default_val.type);
-        case NODE_CAST:
-            return type_clone(node->data.cast.type);
+
         default:
             return NULL;
     }
 }
 
-bool type_check_return_paths(ast_node *node) {
+bool type_check_return_paths(ast_node *node){
     if (!node) return false;
 
     switch (node->type){

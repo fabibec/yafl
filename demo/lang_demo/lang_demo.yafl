@@ -38,6 +38,13 @@ fn start() -> none {
     println(|sliced| + >> has len = << + to_str(len(|sliced|)));
 }
 
+fn iter(range'int: |it|) -> none {
+    println(>>Iter for range<<);
+    for int |i| in |it| {
+        println(|i|);
+    }
+}
+
 fn url(str: |host|, int: |port| <- 10#443, bool: |secure| <- Yes) -> none {
     str |url|;
     if |secure| {
@@ -47,13 +54,6 @@ fn url(str: |host|, int: |port| <- 10#443, bool: |secure| <- Yes) -> none {
     }
     |url| <-+ |host| + >>:<< + to_str(|port|);
     println(|url|);
-}
-
-fn iter(range'int: |it|) -> none {
-    println(>>Iter for range<<);
-    for int |i| in |it| {
-        println(|i|);
-    }
 }
 
 fn iter(str: |s|) -> none {

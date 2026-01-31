@@ -7,7 +7,7 @@
 /* Static type checking */
 
 /* Get type of expression (and check validity recursively) */
-yafl_t* type_check_expr(ast_node *node);
+yafl_t* type_check_get_expr_type(ast_node *node);
 
 /* Check if types are compatible (log error if not) */
 void type_check_compatibility(yafl_t *expected, yafl_t *actual, int line, const char *context);
@@ -18,4 +18,4 @@ void type_check_func_signature(ast_node *func_node);
 /* Check if all paths return */
 bool type_check_return_paths(ast_node *node);
 
-#endif
+#endif // _TYPE_CHECKING_H_

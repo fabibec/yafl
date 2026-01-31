@@ -346,10 +346,6 @@ static ast_node *traverse(ast_node *node) {
             node->data.for_loop.body = traverse(node->data.for_loop.body);
             break;
 
-        case NODE_CAST:
-            node->data.cast.expr = traverse(node->data.cast.expr);
-            break;
-
         case NODE_ARR_LIT:
             node->data.arr_lit.elements = traverse(node->data.arr_lit.elements);
             break;

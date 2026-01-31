@@ -1,0 +1,4 @@
+fn start() -> int {
+    int |x| <- - >>string<<;
+    ret 0;
+}

@@ -252,22 +252,14 @@ val_t *val_mul (val_t *v1, val_t *v2) {
       if (v2->type == T_NUM) {
         /* Array repetition */
         int count = v2->u.num;
-        if (count < 0) count = 0;
-        ret = val_create(T_ARR);
-        for (int k = 0; k < count; k++) {
-            for (int i = 0; i < v1->u.arr->size; i++) {
-                arr_push(ret->u.arr, val_copy(arr_get(v1->u.arr, i)));
-            }
-        }
-        return ret;
-      } else if (v2->type == T_STR) {
-        /* Array join */
-        ret = val_create(T_STR);
-        for (int i = 0; i < v1->u.arr->size; i++) {
-            val_t *item = val_conv(T_STR, arr_get(v1->u.arr, i));
-            str_add_buf(ret->u.str, item->u.str->buf, item->u.str->len);
-            if (i != v1->u.arr->size-1)
-            str_add_buf(ret->u.str, v2->u.str->buf, v2->u.str->len);
+        if (count <= 0) return v_arr_create();
+
+        ret = val_copy(v1);
+        arr_t *arr = v1->u.arr;
+        for (int k = 1; k < count; k++) {
+          for (int i = 0; i < arr->size; i++) {
+            arr_push(ret->u.arr, val_copy(arr_get(arr, i)));
+          }
         }
         return ret;
       }
@@ -407,7 +399,7 @@ int vals_mark (void *_exec) {
   count += val_mark(exec->prog->constants);
   count += val_mark(exec->prog->functions);
   count += val_mark(exec->prog->ops);
-  // Otherwise the input arguments instantly gets removed by the GC
+  // Otherwise the input arguments instantly get removed by the GC
   count += val_mark(exec->args);
 
   return count;

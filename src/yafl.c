@@ -34,7 +34,9 @@ static void cleanup(){
 */
 void sig_handler(int signo) {
     if (signo == SIGINT) {
-        cleanup();
+        // ANSI escape code to show cursor
+        printf("\033[?25h");
+        fflush(stdout);
         exit(EXIT_SUCCESS);
     }
 }
