@@ -91,12 +91,7 @@ str_t *str_index_assign(str_t *str, int index, str_t *str2) {
   int replace = (index < str->len) ? 1 : 0;
   int new_len = str->len + str2->len - replace;
 
-  // Exponential growth realloc
-  if (new_len >= str->cap) {
-    while (new_len >= str->cap) str->cap *= 2;
-    str->buf = realloc(str->buf, str->cap);
-  }
-  // str->buf = realloc(str->buf, str->len + str2->len + 1);
+  str->buf = realloc(str->buf, new_len + 1);
 
   // Make room if needed
   memmove(

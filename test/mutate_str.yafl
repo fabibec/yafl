@@ -4,8 +4,22 @@
 -}
 
 fn start() -> none {
-    str |s2| <- >>ABC<<;
-    |s2|[1] <- >>XY<<;
-    println(|s2|); ~~ AXYC
-    println(len(|s2|)); ~~ 4
+    str |s| <- >>ABC<<;
+
+    ~~ Replace with same length
+    |s|[1] <- >>X<<;
+    println(|s|); ~~ AXC
+
+    ~~ Replace with different length (expand)
+    |s|[1] <- >>YZ<<;
+    println(|s|); ~~ AYZC
+    println(len(|s|)); ~~ 4
+
+    ~~ Append directly at the end
+    |s|[len(|s|)] <- >>D<<;
+    println(|s|); ~~ AYZCD
+
+    ~~ Out-of-bounds assignment (should pad)
+    |s|[7] <- >>!<<;
+    println(|s|); ~~ AYZCD  !
 }
