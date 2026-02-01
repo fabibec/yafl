@@ -55,11 +55,11 @@ IGNORE [ \t\n]+
 }
 
 "NaN" {
-    yylval.fl_nr = INFINITY;
+    yylval.fl_nr = NAN;
     return L_FLOAT;
 }
 "Inf" {
-    yylval.fl_nr = 0;
+    yylval.fl_nr = INFINITY;
     return L_FLOAT;
 }
 
